@@ -17,6 +17,7 @@ import { Tracker } from "@/components/Tracker";
 import { Banner, Body, Btn, Card, Screen } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { db } from "@/lib/firebase";
+import { useDocs } from "@/lib/documents";
 import { useCollection } from "@/lib/firestore";
 import { pickProof } from "@/lib/photo";
 
@@ -25,7 +26,7 @@ const OPEN = ["draft", "submitted", "verified", "approved"];
 /** Documents on one request: view them, and add a missing one while the request is still open. */
 function CaseDocs({ id, c }: { id: string; c: any }) {
   const { user } = useAuth();
-  const docs = useCollection<{ kind: DocKind; dataUrl: string }>(`cases/${id}/documents`);
+  const docs = useDocs<{ kind: DocKind }>("cases", id);
   const [show, setShow] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const have = new Set(docs.rows.map((d) => d.kind));
@@ -47,6 +48,7 @@ function CaseDocs({ id, c }: { id: string; c: any }) {
         note: DOC_LABELS[kind],
         at: serverTimestamp(),
       });
+      docs.reload();
     } catch (e) {
       setErr((e as Error).message);
     }

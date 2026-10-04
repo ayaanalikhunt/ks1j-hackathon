@@ -198,8 +198,9 @@ describe("applicant intake and proof documents", () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), "cases", "c1", "documents", "d1"), { kind: "aadhaar", name: "x", dataUrl: img() });
     });
-    await assertSucceeds(getDoc(doc(asUser("ver1"), "cases", "c1", "documents", "d1")));
-    await assertSucceeds(getDoc(doc(asUser("alice"), "cases", "c1", "documents", "d1")));
+    // images are read through the getDocument function (audited), never straight from the database
+    await assertFails(getDoc(doc(asUser("ver1"), "cases", "c1", "documents", "d1")));
+    await assertFails(getDoc(doc(asUser("alice"), "cases", "c1", "documents", "d1")));
     await assertFails(getDoc(doc(asUser("bob"), "cases", "c1", "documents", "d1")));
     await assertFails(getDoc(doc(asUser("vol"), "cases", "c1", "documents", "d1")));
     await assertFails(updateDoc(doc(asUser("alice"), "cases", "c1", "documents", "d1"), { kind: "other" }));
@@ -395,7 +396,7 @@ describe("education loans: application and background check", () => {
     await assertFails(addDoc(collection(asUser("alice"), "loans", "L1", "documents"), { ...d, kind: "passport" }));
     await assertFails(addDoc(collection(asUser("ver1"), "loans", "L1", "documents"), { ...d, addedBy: "tru1" }));
     await assertFails(getDocs(collection(asUser("bob"), "loans", "L1", "documents")));
-    await assertSucceeds(getDocs(collection(asUser("ver1"), "loans", "L1", "documents")));
+    await assertFails(getDocs(collection(asUser("ver1"), "loans", "L1", "documents"))); // images are read through the audited getDocument function
   });
 });
 

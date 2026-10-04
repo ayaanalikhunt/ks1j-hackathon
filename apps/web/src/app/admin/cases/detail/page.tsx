@@ -59,6 +59,7 @@ import { useAuth } from "@/lib/auth";
 import { auth, db } from "@/lib/firebase";
 import { decideFlag, useFlags } from "@/lib/flags";
 import { compressImage } from "@/lib/image";
+import { useDocs } from "@/lib/documents";
 import { useCollection } from "@/lib/useCollection";
 
 interface Case {
@@ -161,7 +162,7 @@ function Review() {
 
   const members = useCollection<{ fullName: string }>("members");
   const customCats = useCollection<{ label: string }>("caseCategories");
-  const docs = useCollection<ProofDoc>(id ? `cases/${id}/documents` : "cases/none/documents");
+  const docs = useDocs<ProofDoc>("cases", id);
   const flagState = useFlags();
   const [events, setEvents] = useState<(CaseEventRow & { id: string })[]>([]);
   const [gifts, setGifts] = useState<{ amount: number; status: string }[]>([]);
@@ -291,6 +292,7 @@ function Review() {
       const dataUrl = await compressImage(file);
       await addDoc(collection(db, "cases", id, "documents"), { kind: addKind, name: file.name, dataUrl, uploadedAt: serverTimestamp(), addedBy: uid });
       await log("document_added", DOC_LABELS[addKind]);
+      docs.reload();
     }, `${DOC_LABELS[addKind]} added to the file.`);
   };
 

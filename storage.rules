@@ -1,0 +1,10 @@
+rules_version = '2';
+// Nothing is reachable from a browser or phone. Private proofs live in a separate bucket and are only ever read and
+// written by Cloud Functions, which check who is asking and keep the audit log.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

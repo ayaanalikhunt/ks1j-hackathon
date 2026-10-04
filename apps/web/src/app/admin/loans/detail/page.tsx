@@ -29,6 +29,7 @@ import { Banner, Button, Card, Field, PageHeader } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { auth, db } from "@/lib/firebase";
 import { compressImage } from "@/lib/image";
+import { useDocs } from "@/lib/documents";
 import { useCollection } from "@/lib/useCollection";
 
 interface Ref {
@@ -104,7 +105,7 @@ function Review() {
   const uid = user?.uid ?? "";
   const role = member?.role;
   const [loan, setLoan] = useState<Loan | null | undefined>(undefined);
-  const docs = useCollection<LoanDoc>(id ? `loans/${id}/documents` : "loans/none/documents");
+  const docs = useDocs<LoanDoc>("loans", id);
   const [checks, setChecks] = useState<Record<string, Check>>({});
   const members = useCollection<{ fullName: string }>("members");
   const [zoom, setZoom] = useState<LoanDoc | null>(null);
@@ -166,6 +167,7 @@ function Review() {
     return act(async () => {
       const dataUrl = await compressImage(file);
       await addDoc(collection(db, "loans", id, "documents"), { kind: addKind, name: file.name, dataUrl, uploadedAt: serverTimestamp(), addedBy: uid });
+      docs.reload();
     }, `${LOAN_DOC_LABELS[addKind]} added to the file.`);
   };
   const propose = () =>

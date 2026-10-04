@@ -305,7 +305,9 @@ describe("orphan education loan, end to end", () => {
     for (const kind of ["aadhaar", "address_proof", "income_proof", "admission_letter", "fee_structure", "mark_sheet", "death_certificate", "guardian_id"]) {
       await addDoc(collection(borrower.db, "loans", loanId, "documents"), { kind, name: `${kind}.jpg`, dataUrl: "data:image/jpeg;base64,AAAA" });
     }
-    expect((await getDocs(collection(verifier.db, "loans", loanId, "documents"))).size).toBe(8);
+    await expect(getDocs(collection(verifier.db, "loans", loanId, "documents"))).rejects.toThrow(); // direct reads are closed
+    const listed = (await httpsCallable(verifier.fns, "listDocuments")({ parent: "loans", id: loanId })).data as { documents: unknown[] };
+    expect(listed.documents.length).toBe(8);
   });
 
   it("no plan can be proposed on a partial background check, or without a home visit by someone else", async () => {

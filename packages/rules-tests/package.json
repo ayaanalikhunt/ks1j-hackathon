@@ -2,7 +2,7 @@
   "name": "@ks1j/rules-tests",
   "private": true,
   "scripts": {
-    "test": "firebase emulators:exec --only auth,firestore,functions --project ks1j-8a2e3 \"vitest run\"",
+    "test": "firebase emulators:exec --only auth,firestore,functions,storage --project ks1j-8a2e3 \"vitest run\"",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

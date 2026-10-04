@@ -5,6 +5,7 @@ import { where } from "firebase/firestore";
 import { useMemo, useState } from "react";
 import { PURPOSE_LABELS, formatRupees } from "@ks1j/shared";
 import { Table } from "@/components/Table";
+import { compressImage } from "@/lib/image";
 import { Banner, Button, Card, Field, PageHeader } from "@/components/ui";
 import { auth } from "@/lib/firebase";
 import { useCollection } from "@/lib/useCollection";
@@ -16,6 +17,28 @@ interface Donation { publicReference?: string; amount: number; allocatedAmount?:
 interface CaseRow { number?: number; title?: string; amountRequested: number; raised?: number; status: string; zakatEligible?: boolean }
 interface Alloc { donationId: string; caseNumber?: number | null; amount: number; reservedAmount?: number; disbursedAmount?: number; status: string; category?: string }
 interface Disb { allocationId: string; amount: number; method: string; status: string; proofStatus?: string; processedBy: string }
+
+/** A photo is compressed; a PDF is sent as it is. The server accepts only real JPEG, PNG or PDF files under 3 MB. */
+async function fileToDataUrl(file: File): Promise<string> {
+  if (file.type.startsWith("image/")) return compressImage(file);
+  if (file.type !== "application/pdf") throw new Error("Choose a photo or a PDF.");
+  if (file.size > 3_000_000) throw new Error("The PDF must be under 3 MB.");
+  return new Promise((ok, no) => {
+    const r = new FileReader();
+    r.onload = () => ok(String(r.result));
+    r.onerror = () => no(new Error("Could not read the file."));
+    r.readAsDataURL(file);
+  });
+}
+
+/** Open a proof in a new tab. The file is fetched through a function that records the view in the audit log. */
+async function openProof(act: ReturnType<typeof useAction>, id: string) {
+  const r = (await act.run("getProof", { disbursementId: id }, "Opened. This view was recorded in the audit log.")) as { dataUrl?: string; type?: string } | undefined;
+  if (!r?.dataUrl) return;
+  const bin = atob(r.dataUrl.split(",")[1]);
+  const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+  window.open(URL.createObjectURL(new Blob([bytes], { type: r.type })), "_blank");
+}
 
 function useAction() {
   const [msg, setMsg] = useState<{ kind: "info" | "error"; text: string } | null>(null);
@@ -129,6 +152,16 @@ export default function Allocations() {
   const payable = allocs.rows.filter((a) => a.status === "allocated" && a.amount - (a.reservedAmount ?? 0) > 0);
   const pending = disbs.rows.filter((d) => d.status === "pending_approval");
   const proofs = disbs.rows.filter((d) => d.status === "completed" && d.proofStatus === "pending");
+  const noProof = disbs.rows.filter((d) => ["completed", "pending_approval"].includes(d.status) && (!d.proofStatus || d.proofStatus === "none"));
+
+  async function upload(id: string, file: File | undefined) {
+    if (!file) return;
+    try {
+      await act.run("uploadProof", { disbursementId: id, name: file.name, dataUrl: await fileToDataUrl(file) }, "Proof uploaded to private storage. Someone else must now review it.");
+    } catch (e) {
+      alert((e as Error).message);
+    }
+  }
 
   async function reconcile() {
     const r = await act.run("reconcileFunds", {}, "Books checked.");
@@ -190,13 +223,35 @@ export default function Allocations() {
         ]}
       />
 
+      <h2 className="mb-2 mt-8 font-display text-2xl">Payouts without proof</h2>
+      <Table<Disb>
+        rows={noProof}
+        empty="Every payout has a proof."
+        cols={[
+          { head: "Amount", cell: (r) => formatRupees(r.amount) },
+          { head: "Method", cell: (r) => r.method },
+          {
+            head: "Upload receipt or invoice",
+            cell: (r) => <input type="file" accept="image/*,application/pdf" disabled={act.busy} onChange={(e) => upload(r.id, e.target.files?.[0])} />,
+          },
+        ]}
+      />
+
       <h2 className="mb-2 mt-8 font-display text-2xl">Proof awaiting review</h2>
       <Table<Disb>
         rows={proofs}
         empty="No proof waiting."
         cols={[
           { head: "Amount", cell: (r) => formatRupees(r.amount) },
-          { head: "", cell: (r) => <Button className="!min-h-9 !px-3" disabled={act.busy} onClick={() => act.run("verifyDisbursementProof", { id: r.id }, "Proof verified.")}>Mark proof verified</Button> },
+          {
+            head: "",
+            cell: (r) => (
+              <span className="flex flex-wrap gap-2">
+                <Button className="!min-h-9 !px-3 !bg-card !text-[var(--fg)] border border-line" disabled={act.busy} onClick={() => openProof(act, r.id)}>View proof</Button>
+                <Button className="!min-h-9 !px-3" disabled={act.busy} onClick={() => act.run("verifyDisbursementProof", { id: r.id }, "Proof verified.")}>Mark proof verified</Button>
+              </span>
+            ),
+          },
         ]}
       />
 

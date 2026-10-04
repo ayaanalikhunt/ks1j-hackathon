@@ -1,13 +1,14 @@
 "use client";
 
-import { addDoc, collection, doc, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
-import { useEffect, useState } from "react";
+import { addDoc, collection, doc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { useState } from "react";
 import { formatRupees, isAdminLike } from "@ks1j/shared";
 import { Table } from "@/components/Table";
 import { Banner, Button, Card, Field, PageHeader } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { db } from "@/lib/firebase";
 import { compressImage } from "@/lib/image";
+import { useDocs } from "@/lib/documents";
 import { useCollection } from "@/lib/useCollection";
 
 interface Institution {
@@ -24,18 +25,10 @@ interface Institution {
 
 /** The ijazah photo is in a staff-only subcollection, loaded only when someone asks to see it. */
 function IjazahPhoto({ id }: { id: string }) {
-  const [url, setUrl] = useState<string | null | undefined>(undefined);
-  useEffect(
-    () =>
-      onSnapshot(
-        collection(db, "institutions", id, "documents"),
-        (s) => setUrl(s.docs[0]?.data().dataUrl ?? null),
-        () => setUrl(null),
-      ),
-    [id],
-  );
-  if (url === undefined) return <p className="text-sm text-muted">Loading…</p>;
-  if (url === null) return <p className="text-sm text-muted">No ijazah photo was attached.</p>;
+  const docs = useDocs<{ kind: string }>("institutions", id);
+  const url = docs.rows[0]?.dataUrl;
+  if (docs.loading) return <p className="text-sm text-muted">Loading…</p>;
+  if (!url) return <p className="text-sm text-muted">{docs.error ?? "No ijazah photo was attached."}</p>;
   // eslint-disable-next-line @next/next/no-img-element
   return <img src={url} alt="Ijazah" className="max-h-72 rounded-lg border border-line bg-white object-contain" />;
 }

@@ -136,7 +136,8 @@ service cloud.firestore {
       allow update: if isStaff() && resource.data.status in ['submitted', 'verified', 'approved']
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['beneficiarySadaatVerified']);
       match /documents/{docId} {
-        allow read: if signedIn() && (get(/databases/$(database)/documents/cases/$(id)).data.applicantId == request.auth.uid || isStaff());
+        // Never read directly: the images are fetched through getDocument, which checks who is asking and writes the audit log.
+        allow read: if false;
         // Proof photos: the applicant adds them while the case is still open. Compressed images only.
         allow create: if signedIn()
           && get(/databases/$(database)/documents/cases/$(id)).data.applicantId == request.auth.uid
@@ -219,7 +220,7 @@ service cloud.firestore {
       allow update: if isAdmin()
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['received', 'handedOver', 'ijazahVerified', 'verifiedBy', 'verifiedAt', 'addedBy']);
       match /documents/{docId} {
-        allow read: if isStaff();
+        allow read: if false; // through getDocument, which audits it
         allow create: if (role() == 'trustee' || isAdmin())
           && request.resource.data.dataUrl is string
           && request.resource.data.dataUrl.matches('^data:image/(jpeg|png);base64,.*')
@@ -376,7 +377,7 @@ service cloud.firestore {
       }
       // Proof photos, as for cases. The family and staff can add them while the application is being checked.
       match /documents/{docId} {
-        allow read: if signedIn() && (loanOf(id).borrowerId == request.auth.uid || isStaff());
+        allow read: if false; // through getDocument, which audits it
         allow create: if signedIn() && loanOf(id).status == 'applied'
           && (loanOf(id).borrowerId == request.auth.uid || isStaff())
           && request.resource.data.kind in ['aadhaar', 'address_proof', 'income_proof', 'admission_letter', 'fee_structure', 'mark_sheet', 'death_certificate', 'guardian_id', 'other']
