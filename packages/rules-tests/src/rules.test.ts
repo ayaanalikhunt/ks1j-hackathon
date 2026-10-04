@@ -146,6 +146,49 @@ describe("case workflow", () => {
   });
 });
 
+describe("applicant intake and proof documents", () => {
+  const img = (n = 100) => "data:image/jpeg;base64," + "A".repeat(n);
+  const draft = { applicantId: "alice", status: "draft", description: "Need help" };
+  it("applicant can create a draft, attach proof, then submit it", async () => {
+    const a = asUser("alice");
+    await assertSucceeds(setDoc(doc(a, "cases", "n1"), draft));
+    await assertSucceeds(addDoc(collection(a, "cases", "n1", "documents"), { kind: "aadhaar", name: "aadhaar.jpg", dataUrl: img() }));
+    await assertSucceeds(addDoc(collection(a, "cases", "n1", "documents"), { kind: "address_proof", name: "bill.jpg", dataUrl: img() }));
+    await assertSucceeds(updateDoc(doc(a, "cases", "n1"), { status: "submitted", familyHistory: "Four members" }));
+  });
+  it("applicant cannot sneak staff fields in while submitting", async () => {
+    const a = asUser("alice");
+    await assertSucceeds(setDoc(doc(a, "cases", "n2"), draft));
+    await assertFails(updateDoc(doc(a, "cases", "n2"), { status: "submitted", verifiedBy: "ver1" }));
+    await assertFails(updateDoc(doc(a, "cases", "n2"), { status: "verified" }));
+    await assertFails(updateDoc(doc(a, "cases", "n2"), { status: "submitted", applicantId: "bob" }));
+  });
+  it("documents must be small images with a known kind", async () => {
+    const a = asUser("alice");
+    await assertSucceeds(setDoc(doc(a, "cases", "n3"), draft));
+    await assertFails(addDoc(collection(a, "cases", "n3", "documents"), { kind: "aadhaar", name: "x", dataUrl: img(950000) }));
+    await assertFails(addDoc(collection(a, "cases", "n3", "documents"), { kind: "passport", name: "x", dataUrl: img() }));
+    await assertFails(addDoc(collection(a, "cases", "n3", "documents"), { kind: "aadhaar", name: "x", dataUrl: "javascript:alert(1)" }));
+    await assertFails(addDoc(collection(a, "cases", "n3", "documents"), { kind: "aadhaar", name: "x", dataUrl: img(), extra: 1 }));
+  });
+  it("only the applicant adds proof, and only while the case is open", async () => {
+    await assertFails(addDoc(collection(asUser("bob"), "cases", "c1", "documents"), { kind: "aadhaar", name: "x", dataUrl: img() }));
+    await assertFails(addDoc(collection(asUser("ver1"), "cases", "c1", "documents"), { kind: "aadhaar", name: "x", dataUrl: img() }));
+    await assertFails(addDoc(collection(asUser("alice"), "cases", "cSyed", "documents"), { kind: "aadhaar", name: "x", dataUrl: img() }));
+  });
+  it("proof is readable by staff and the applicant only, and never changeable", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "cases", "c1", "documents", "d1"), { kind: "aadhaar", name: "x", dataUrl: img() });
+    });
+    await assertSucceeds(getDoc(doc(asUser("ver1"), "cases", "c1", "documents", "d1")));
+    await assertSucceeds(getDoc(doc(asUser("alice"), "cases", "c1", "documents", "d1")));
+    await assertFails(getDoc(doc(asUser("bob"), "cases", "c1", "documents", "d1")));
+    await assertFails(getDoc(doc(asUser("vol"), "cases", "c1", "documents", "d1")));
+    await assertFails(updateDoc(doc(asUser("alice"), "cases", "c1", "documents", "d1"), { kind: "other" }));
+    await assertFails(deleteDoc(doc(asUser("adm"), "cases", "c1", "documents", "d1")));
+  });
+});
+
 describe("privacy", () => {
   it("other members cannot read a case; applicant and staff can", async () => {
     await assertFails(getDoc(doc(asUser("bob"), "cases", "c1")));

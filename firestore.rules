@@ -46,8 +46,9 @@ service cloud.firestore {
       allow update: if signedIn() && resource.data.applicantId == request.auth.uid
         && resource.data.status == 'draft'
         && request.resource.data.status in ['draft', 'submitted']
-        && unchanged('verifiedBy') && unchanged('approvedBy') && unchanged('applicantId')
-        && request.resource.data.get('beneficiarySadaatVerified', false) == resource.data.get('beneficiarySadaatVerified', false);
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+             'applicantId', 'verifiedBy', 'verifiedAt', 'approvedBy', 'approvedAt', 'declinedBy', 'declinedAt',
+             'declineReason', 'declineNote', 'disbursedBy', 'disbursedAt', 'beneficiarySadaatVerified']);
       // Each staff transition may touch only the fields it owns.
       // Rule 1: whoever verifies is never the person who approves.
       allow update: if (role() == 'verifier' || isAdmin()) && resource.data.status == 'submitted'
@@ -75,7 +76,15 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['beneficiarySadaatVerified']);
       match /documents/{docId} {
         allow read: if signedIn() && (get(/databases/$(database)/documents/cases/$(id)).data.applicantId == request.auth.uid || isStaff());
-        allow create: if signedIn() && get(/databases/$(database)/documents/cases/$(id)).data.applicantId == request.auth.uid;
+        // Proof photos: the applicant adds them while the case is still open. Compressed images only.
+        allow create: if signedIn()
+          && get(/databases/$(database)/documents/cases/$(id)).data.applicantId == request.auth.uid
+          && get(/databases/$(database)/documents/cases/$(id)).data.status in ['draft', 'submitted']
+          && request.resource.data.kind in ['aadhaar', 'address_proof', 'income_proof', 'other']
+          && request.resource.data.dataUrl is string
+          && request.resource.data.dataUrl.matches('^data:image/(jpeg|png);base64,.*')
+          && request.resource.data.dataUrl.size() < 900000
+          && request.resource.data.keys().hasOnly(['kind', 'name', 'dataUrl', 'uploadedAt']);
         // AI check may only flag/suggest (server-written); no client may set a decision.
         allow update, delete: if false;
       }

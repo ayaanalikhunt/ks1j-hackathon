@@ -20,7 +20,7 @@ const FILTERS = [
   ["verified", "To approve"],
   ["approved", "To pay out"],
   ["disbursed", "Paid out"],
-  ["declined", "Cancelled"],
+  ["declined", "Denied"],
 ] as const;
 
 export default function AdminCases() {

@@ -36,6 +36,13 @@
           "backgroundColor": "#ffffff",
           "imageWidth": 200
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "KS1J uses your photos only to attach proof documents to your application.",
+          "cameraPermission": "KS1J uses the camera only to photograph proof documents for your application."
+        }
       ]
     ],
     "experiments": {
