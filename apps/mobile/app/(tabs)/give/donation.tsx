@@ -8,6 +8,7 @@ import { Banner, Body, Btn, Card, Heading, Screen } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { useCollection, useDocument } from "@/lib/firestore";
 import { useLang } from "@/lib/i18n";
+import { esc, page, sharePdf } from "@/lib/pdf";
 
 function Step({ done, title, children }: { done: boolean; title: string; children?: React.ReactNode }) {
   return (
@@ -24,12 +25,13 @@ function Step({ done, title, children }: { done: boolean; title: string; childre
 export default function DonationDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
-  const { t } = useLang();
+  const { t, rtl } = useLang();
   const uid = user?.uid ?? "";
   const d = useDocument(id ? `donations/${id}` : null);
   const allocs = useCollection(user && id ? "allocations" : null, [where("donationId", "==", id), where("donorId", "==", uid)], [id, uid]);
   const disbs = useCollection(user && id ? "disbursements" : null, [where("donationId", "==", id), where("donorId", "==", uid)], [id, uid]);
   const [shown, setShown] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
 
   if (d === undefined) return <RequireAuth eyebrow={t("give.eyebrow")} title={t("md.donation")}><Screen eyebrow={t("give.eyebrow")} title={t("md.donation")} /></RequireAuth>;
   if (d === null)
@@ -60,6 +62,8 @@ export default function DonationDetail() {
       <Screen eyebrow={d.publicReference ?? t("md.donation")} title={formatRupees(d.amount)} intro={`${PURPOSE_LABELS[d.purpose] ?? t("md.donation")} · ${donationStage(d as unknown as Parameters<typeof donationStage>[0])}`}>
         <Btn label={t("dd.where")} onPress={() => setShown(!shown)} />
         <Btn quiet label={t("dd.share")} onPress={() => Share.share({ message: receipt })} />
+        <Btn quiet label={t("pdf.receipt")} onPress={() => sharePdf(page(t("dd.receiptTitle"), receipt.split("\n").slice(1).map((l) => `<p>${esc(l)}</p>`).join("") + `<p class="m">${esc(t("dd.zeroInterest"))}</p>`, rtl), d.publicReference ?? "").catch((e) => setPdfError(t("pdf.failed", { error: (e as Error).message })))} />
+        {pdfError ? <Banner error>{pdfError}</Banner> : null}
 
         <Card>
           <Heading>{t("dd.receipt")}</Heading>

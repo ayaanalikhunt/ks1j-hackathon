@@ -252,6 +252,18 @@ const en = {
   "hd.source": "Source: {source}",
   "hd.unknown": "I do not know the answer to that. Please ask the Jamaat office or your alim.",
   "feed.intro": "Keep it kind and useful. Staff may remove posts that break that.",
+  // mobile: PDF receipts and statements
+  "pdf.receipt": "Share receipt as PDF",
+  "pdf.statement": "Statement as PDF",
+  "pdf.statementTitle": "KS1J donation statement",
+  "pdf.generated": "Generated {date}",
+  "pdf.colRef": "Reference",
+  "pdf.colDate": "Date",
+  "pdf.colAmount": "Amount",
+  "pdf.colPurpose": "Purpose",
+  "pdf.colStatus": "Status",
+  "pdf.total": "Total donated: {amount}",
+  "pdf.failed": "We could not make the PDF: {error}",
 } as const;
 
 export type MessageKey = keyof typeof en;
@@ -485,6 +497,18 @@ const gu: Dict = {
   "hd.source": "સ્રોત: {source}",
   "hd.unknown": "મને તેનો જવાબ ખબર નથી. કૃપા કરી જમાત કાર્યાલય અથવા તમારા આલિમને પૂછો.",
   "feed.intro": "દયાળુ અને ઉપયોગી રાખો. જે પોસ્ટ આ નિયમ તોડે તે સ્ટાફ દૂર કરી શકે છે.",
+  // mobile: PDF receipts and statements
+  "pdf.receipt": "રસીદ PDF તરીકે શેર કરો",
+  "pdf.statement": "PDF તરીકે સ્ટેટમેન્ટ",
+  "pdf.statementTitle": "KS1J દાન સ્ટેટમેન્ટ",
+  "pdf.generated": "બનાવ્યું {date}",
+  "pdf.colRef": "સંદર્ભ",
+  "pdf.colDate": "તારીખ",
+  "pdf.colAmount": "રકમ",
+  "pdf.colPurpose": "હેતુ",
+  "pdf.colStatus": "સ્થિતિ",
+  "pdf.total": "કુલ દાન: {amount}",
+  "pdf.failed": "અમે PDF બનાવી શક્યા નથી: {error}",
 };
 
 const hi: Dict = {
@@ -715,6 +739,18 @@ const hi: Dict = {
   "hd.source": "स्रोत: {source}",
   "hd.unknown": "मुझे इसका उत्तर नहीं पता। कृपया जमात कार्यालय या अपने आलिम से पूछें।",
   "feed.intro": "इसे विनम्र और उपयोगी रखें। जो पोस्ट इसे तोड़ें, स्टाफ उन्हें हटा सकता है।",
+  // mobile: PDF receipts and statements
+  "pdf.receipt": "रसीद PDF के रूप में साझा करें",
+  "pdf.statement": "PDF के रूप में विवरण",
+  "pdf.statementTitle": "KS1J दान विवरण",
+  "pdf.generated": "बनाया गया {date}",
+  "pdf.colRef": "संदर्भ",
+  "pdf.colDate": "तारीख",
+  "pdf.colAmount": "रकम",
+  "pdf.colPurpose": "उद्देश्य",
+  "pdf.colStatus": "स्थिति",
+  "pdf.total": "कुल दान: {amount}",
+  "pdf.failed": "हम PDF नहीं बना सके: {error}",
 };
 
 const ur: Dict = {
@@ -945,6 +981,18 @@ const ur: Dict = {
   "hd.source": "ماخذ: {source}",
   "hd.unknown": "مجھے اس کا جواب معلوم نہیں۔ براہِ کرم جماعت کے دفتر یا اپنے عالم سے پوچھیں۔",
   "feed.intro": "اسے مہذب اور مفید رکھیں۔ جو پوسٹیں اس کی خلاف ورزی کریں عملہ انہیں ہٹا سکتا ہے۔",
+  // mobile: PDF receipts and statements
+  "pdf.receipt": "رسید PDF کے طور پر شیئر کریں",
+  "pdf.statement": "PDF کے طور پر گوشوارہ",
+  "pdf.statementTitle": "KS1J عطیات کا گوشوارہ",
+  "pdf.generated": "تیار کیا گیا {date}",
+  "pdf.colRef": "حوالہ",
+  "pdf.colDate": "تاریخ",
+  "pdf.colAmount": "رقم",
+  "pdf.colPurpose": "مقصد",
+  "pdf.colStatus": "حالت",
+  "pdf.total": "کل عطیات: {amount}",
+  "pdf.failed": "ہم PDF نہیں بنا سکے: {error}",
 };
 
 const DICT: Record<Lang, Dict> = { en, gu, hi, ur };
