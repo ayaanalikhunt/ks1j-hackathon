@@ -1,0 +1,4 @@
+{
+  "firestore": { "rules": "firestore.rules", "indexes": "firestore.indexes.json" },
+  "hosting": { "site": "ks1j-8a2e3", "public": "site", "ignore": ["firebase.json", "**/.*"] }
+}

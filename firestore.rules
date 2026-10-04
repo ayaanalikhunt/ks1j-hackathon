@@ -1,0 +1,200 @@
+rules_version = '2';
+// Firestore is the enforcement layer. Money never moves on the client:
+// donations/repayments are created `pending`; only the Admin SDK (Cloud Functions,
+// after gateway confirmation) may set `paid`. Ledgers are append-only.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function me() { return get(/databases/$(database)/documents/members/$(request.auth.uid)).data; }
+    function role() { return signedIn() ? me().role : 'none'; }
+    function isStaff() { return role() in ['verifier', 'trustee', 'admin']; }
+    function isAdmin() { return role() == 'admin'; }
+    function unchanged(f) { return request.resource.data[f] == resource.data[f]; }
+
+    // ---- members: own doc readable; role/sadaat flag staff-only ----
+    match /members/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isStaff());
+      allow create: if signedIn() && request.auth.uid == uid
+        && request.resource.data.role == 'member'
+        && request.resource.data.sadaatVerified == false;
+      allow update: if signedIn() && request.auth.uid == uid
+        && unchanged('role') && unchanged('sadaatVerified');
+      allow update: if isAdmin();
+    }
+
+    // ---- cases: applicant + staff only. Public cards come from publicCases (no PII). ----
+    match /cases/{id} {
+      allow read: if signedIn() && (resource.data.applicantId == request.auth.uid || isStaff());
+      allow create: if signedIn() && request.resource.data.applicantId == request.auth.uid
+        && request.resource.data.status in ['draft', 'submitted']
+        && !('verifiedBy' in request.resource.data) && !('approvedBy' in request.resource.data);
+      // applicant may edit own draft only
+      allow update: if signedIn() && resource.data.applicantId == request.auth.uid
+        && resource.data.status == 'draft'
+        && request.resource.data.status in ['draft', 'submitted']
+        && unchanged('verifiedBy') && unchanged('approvedBy');
+      // Rule 1: verifier verifies; a DIFFERENT trustee approves.
+      allow update: if role() == 'verifier' && resource.data.status == 'submitted'
+        && request.resource.data.status == 'verified'
+        && request.resource.data.verifiedBy == request.auth.uid;
+      allow update: if role() == 'trustee' && resource.data.status == 'verified'
+        && request.resource.data.status in ['approved', 'declined']
+        && resource.data.verifiedBy != request.auth.uid
+        && request.resource.data.approvedBy == request.auth.uid
+        && unchanged('verifiedBy');
+      allow update: if isAdmin() && request.resource.data.status in ['disbursed', 'declined']
+        && unchanged('verifiedBy') && unchanged('approvedBy');
+      match /documents/{docId} {
+        allow read: if signedIn() && (get(/databases/$(database)/documents/cases/$(id)).data.applicantId == request.auth.uid || isStaff());
+        allow create: if signedIn() && get(/databases/$(database)/documents/cases/$(id)).data.applicantId == request.auth.uid;
+        // AI check may only flag/suggest (server-written); no client may set a decision.
+        allow update, delete: if false;
+      }
+    }
+
+    // ---- public case cards: PII-free projection, server-written, world-readable ----
+    match /publicCases/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ---- institutions ----
+    match /institutions/{id} {
+      allow read: if true;
+      allow create, update: if isAdmin();
+    }
+
+    // ---- donations: create pending only; fund separation (rule 2) ----
+    match /donations/{id} {
+      allow read: if signedIn() && (resource.data.payerId == request.auth.uid || isStaff());
+      allow create: if request.resource.data.status == 'pending'
+        && request.resource.data.amount is int && request.resource.data.amount > 0
+        && (request.resource.data.fund in ['sehme_sadaat', 'general']
+            ? (request.resource.data.caseId is string && !('institutionId' in request.resource.data))
+            : (request.resource.data.fund == 'sehme_imam'
+               && request.resource.data.institutionId is string && !('caseId' in request.resource.data)))
+        && (request.resource.data.fund != 'sehme_sadaat'
+            || get(/databases/$(database)/documents/cases/$(request.resource.data.caseId)).data.beneficiarySadaatVerified == true)
+        && (request.resource.data.fund != 'sehme_imam'
+            || get(/databases/$(database)/documents/institutions/$(request.resource.data.institutionId)).data.ijazahVerified == true)
+        && (request.resource.data.payerId == null || request.resource.data.payerId == request.auth.uid);
+      allow update, delete: if false; // `paid` flip is Admin-SDK only
+    }
+
+    // ---- Khums / Lawajam ----
+    match /khumsCalculations/{id} {
+      allow read: if signedIn() && (resource.data.memberId == request.auth.uid || isStaff());
+      allow create: if signedIn() && request.resource.data.memberId == request.auth.uid;
+    }
+    match /lawajamRecords/{id} {
+      allow read: if signedIn() && (resource.data.memberId == request.auth.uid || isStaff());
+      allow write: if isAdmin();
+    }
+
+    // ---- loans: no interest field exists, by construction ----
+    match /loans/{id} {
+      allow read: if signedIn() && (resource.data.borrowerId == request.auth.uid || isStaff());
+      allow create: if signedIn() && request.resource.data.borrowerId == request.auth.uid
+        && request.resource.data.status == 'applied'
+        && !('interest' in request.resource.data) && !('lateFee' in request.resource.data);
+      // Disbursement requires prior two-sided EMI agreement.
+      allow update: if role() in ['trustee', 'admin']
+        && (request.resource.data.status != 'disbursed'
+            || (resource.data.status == 'agreed' && resource.data.familyAccepted == true && resource.data.trusteeAccepted == true))
+        && !('interest' in request.resource.data) && !('lateFee' in request.resource.data);
+      allow update: if signedIn() && resource.data.borrowerId == request.auth.uid
+        && resource.data.status == 'emi_pending_agreement'
+        && request.resource.diff(resource.data).affectedKeys().hasOnly(['familyAccepted', 'status']);
+    }
+    match /repayments/{id} {
+      allow read: if signedIn() && (resource.data.borrowerId == request.auth.uid || isStaff());
+      allow create: if signedIn() && request.resource.data.borrowerId == request.auth.uid
+        && request.resource.data.status == 'pending';
+      allow update, delete: if false;
+    }
+
+    // ---- ledger: append-only, written by the Admin SDK only ----
+    match /ledger/{id} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+
+    // ---- helpdesk KB + announcements ----
+    match /kbDocuments/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /announcements/{id} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
+    // ---- community ----
+    function hasProfile() { return exists(/databases/$(database)/documents/communityProfiles/$(request.auth.uid)); }
+    function conn(cid) { return get(/databases/$(database)/documents/communityConnections/$(cid)).data; }
+
+    match /communityProfiles/{uid} {
+      allow read: if signedIn() && hasProfile() && (resource.data.listed == true || request.auth.uid == uid || isStaff());
+      allow create, update, delete: if signedIn() && request.auth.uid == uid;
+    }
+    match /communityPosts/{id} {
+      allow read: if signedIn() && hasProfile();
+      allow create: if signedIn() && hasProfile() && request.resource.data.authorId == request.auth.uid;
+      allow update: if isStaff(); // moderation (remove/restore)
+      allow delete: if signedIn() && resource.data.authorId == request.auth.uid;
+      match /appreciations/{uid} {
+        allow read: if signedIn() && hasProfile();
+        allow create, delete: if signedIn() && hasProfile() && request.auth.uid == uid;
+      }
+    }
+    match /communityOpportunities/{id} {
+      allow read: if signedIn() && hasProfile();
+      allow create: if signedIn() && hasProfile() && request.resource.data.authorId == request.auth.uid;
+      allow update: if isStaff();
+      allow delete: if signedIn() && resource.data.authorId == request.auth.uid;
+    }
+    match /communityGroups/{id} {
+      allow read: if signedIn() && hasProfile();
+      allow create: if signedIn() && hasProfile() && request.resource.data.ownerId == request.auth.uid;
+      allow update: if isStaff() || (signedIn() && resource.data.ownerId == request.auth.uid);
+      match /members/{uid} {
+        // roster visible only to members of that group (and staff)
+        allow read: if signedIn() && (isStaff() || request.auth.uid == uid
+          || exists(/databases/$(database)/documents/communityGroups/$(id)/members/$(request.auth.uid)));
+        allow create: if signedIn() && hasProfile() && request.auth.uid == uid
+          && request.resource.data.role == 'member'
+          && request.resource.data.status == (get(/databases/$(database)/documents/communityGroups/$(id)).data.private == true ? 'pending' : 'member');
+        // owner approves pending requests
+        allow update: if signedIn() && get(/databases/$(database)/documents/communityGroups/$(id)).data.ownerId == request.auth.uid;
+        // members may leave; owner may not (no transfer flow)
+        allow delete: if signedIn() && request.auth.uid == uid && resource.data.role != 'owner';
+      }
+    }
+    // Consent-gated: messages only on ACCEPTED connections, only by the two participants.
+    match /communityConnections/{id} {
+      allow read: if signedIn() && (resource.data.fromId == request.auth.uid || resource.data.toId == request.auth.uid);
+      allow create: if signedIn() && hasProfile() && request.resource.data.fromId == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.kind in ['message', 'call']
+        && request.resource.data.note is string && request.resource.data.note.size() > 0;
+      allow update: if signedIn() && resource.data.toId == request.auth.uid
+        && resource.data.status == 'pending'
+        && request.resource.data.status in ['accepted', 'declined']
+        && request.resource.diff(resource.data).affectedKeys().hasOnly(['status']);
+      match /messages/{mid} {
+        allow read: if signedIn() && conn(id).status == 'accepted'
+          && (conn(id).fromId == request.auth.uid || conn(id).toId == request.auth.uid);
+        allow create: if signedIn() && conn(id).status == 'accepted'
+          && (conn(id).fromId == request.auth.uid || conn(id).toId == request.auth.uid)
+          && request.resource.data.senderId == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+    match /communityReports/{id} {
+      allow create: if signedIn() && hasProfile() && request.resource.data.reporterId == request.auth.uid
+        && request.resource.data.status == 'open';
+      allow read, update: if isStaff();
+    }
+  }
+}
