@@ -2,30 +2,31 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { CASE_STATUS_LABELS, CATEGORY_LABELS, formatRupees } from "@ks1j/shared";
+import { CASE_STATUS_LABELS, CASE_TYPE_LABELS, QUEUES, formatRupees, type CaseType } from "@ks1j/shared";
 import { Table } from "@/components/Table";
 import { PageHeader } from "@/components/ui";
 import { useCollection } from "@/lib/useCollection";
 
 interface Case {
+  number?: number;
+  title?: string;
+  type?: CaseType;
   category: string;
+  sadaatClaimed?: boolean;
+  beneficiarySadaatVerified?: boolean;
   status: string;
   description?: string;
+  requirement?: string;
   amountRequested?: number;
+  raised?: number;
 }
 
-const FILTERS = [
-  ["all", "All"],
-  ["submitted", "To verify"],
-  ["verified", "To approve"],
-  ["approved", "To pay out"],
-  ["disbursed", "Paid out"],
-  ["declined", "Denied"],
-] as const;
+// Same queues as the dashboard overview, in the order a case travels.
+const FILTERS = [["all", "All"], ...QUEUES.map(([key, label]) => [key, label] as const)] as const;
 
 export default function AdminCases() {
   const { rows, error } = useCollection<Case>("cases");
-  const [filter, setFilter] = useState<(typeof FILTERS)[number][0]>("all");
+  const [filter, setFilter] = useState<string>("all");
   const shown = rows.filter((r) => filter === "all" || r.status === filter);
   return (
     <>
@@ -53,9 +54,11 @@ export default function AdminCases() {
         error={error}
         empty="No cases in this view."
         cols={[
-          { head: "Category", cell: (r) => CATEGORY_LABELS[r.category] ?? r.category },
-          { head: "Need", cell: (r) => <span className="line-clamp-2">{r.description ?? ""}</span> },
+          { head: "Case", cell: (r) => (<span className="font-semibold">{r.number ? `#${r.number} ` : ""}{r.title || r.requirement || r.description || "Case"}</span>) },
+          { head: "Type", cell: (r) => CASE_TYPE_LABELS[r.type as CaseType] ?? "" },
+          { head: "Category", cell: (r) => (r.beneficiarySadaatVerified ? "Sadaat" : r.sadaatClaimed ? "Sadaat (to check)" : "Non-Sadaat") },
           { head: "Requested", cell: (r) => formatRupees(r.amountRequested ?? 0) },
+          { head: "Raised", cell: (r) => formatRupees(r.raised ?? 0) },
           { head: "Status", cell: (r) => CASE_STATUS_LABELS[r.status] ?? r.status },
           {
             head: "",

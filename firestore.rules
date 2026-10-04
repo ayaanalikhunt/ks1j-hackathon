@@ -54,12 +54,17 @@ service cloud.firestore {
       allow update: if (role() == 'verifier' || isAdmin()) && resource.data.status == 'submitted'
         && request.resource.data.status == 'verified'
         && request.resource.data.verifiedBy == request.auth.uid
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'verifiedBy', 'verifiedAt']);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'verifiedBy', 'verifiedAt', 'beneficiarySadaatVerified', 'sadaatCheckedBy']);
       allow update: if (role() == 'trustee' || isAdmin()) && resource.data.status == 'verified'
         && request.resource.data.status == 'approved'
         && resource.data.verifiedBy != request.auth.uid
         && request.resource.data.approvedBy == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'approvedBy', 'approvedAt']);
+      // Publish: a trustee or admin opens an approved case to donors.
+      allow update: if (role() == 'trustee' || isAdmin()) && resource.data.status == 'approved'
+        && request.resource.data.status == 'published'
+        && request.resource.data.publishedBy == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'publishedBy', 'publishedAt']);
       // Cancel/decline: any staff member, before payout, with a required reason.
       allow update: if isStaff() && resource.data.status in ['submitted', 'verified', 'approved']
         && request.resource.data.status == 'declined'
@@ -67,10 +72,12 @@ service cloud.firestore {
         && request.resource.data.declineReason in ['insufficient_information', 'missing_sources', 'insufficient_proof', 'other']
         && request.resource.data.declineNote is string && request.resource.data.declineNote.size() >= 5
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'declinedBy', 'declinedAt', 'declineReason', 'declineNote']);
-      // Payout: admin level only, and only after approval.
-      allow update: if isAdmin() && resource.data.status == 'approved'
-        && request.resource.data.status == 'disbursed'
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'disbursedBy', 'disbursedAt']);
+      // Funded and paid-out are written only by the Cloud Functions (they also write the ledger).
+      // Closing a paid-out case is admin level.
+      allow update: if isAdmin() && resource.data.status == 'disbursed'
+        && request.resource.data.status == 'closed'
+        && request.resource.data.closedBy == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'closedBy', 'closedAt']);
       // Sadaat status is staff-only and is set before payout.
       allow update: if isStaff() && resource.data.status in ['submitted', 'verified', 'approved']
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['beneficiarySadaatVerified']);
@@ -79,12 +86,21 @@ service cloud.firestore {
         // Proof photos: the applicant adds them while the case is still open. Compressed images only.
         allow create: if signedIn()
           && get(/databases/$(database)/documents/cases/$(id)).data.applicantId == request.auth.uid
-          && get(/databases/$(database)/documents/cases/$(id)).data.status in ['draft', 'submitted']
-          && request.resource.data.kind in ['aadhaar', 'address_proof', 'income_proof', 'other']
+          && get(/databases/$(database)/documents/cases/$(id)).data.status in ['draft', 'submitted', 'verified', 'approved']
+          && request.resource.data.kind in ['aadhaar', 'address_proof', 'income_proof', 'fee_receipt', 'mark_sheet', 'medical_report', 'other']
           && request.resource.data.dataUrl is string
           && request.resource.data.dataUrl.matches('^data:image/(jpeg|png);base64,.*')
           && request.resource.data.dataUrl.size() < 900000
           && request.resource.data.keys().hasOnly(['kind', 'name', 'dataUrl', 'uploadedAt']);
+        // Staff can add a document the family brought to the office, and say who added it.
+        allow create: if isStaff()
+          && get(/databases/$(database)/documents/cases/$(id)).data.status in ['submitted', 'verified', 'approved']
+          && request.resource.data.kind in ['aadhaar', 'address_proof', 'income_proof', 'fee_receipt', 'mark_sheet', 'medical_report', 'other']
+          && request.resource.data.dataUrl is string
+          && request.resource.data.dataUrl.matches('^data:image/(jpeg|png);base64,.*')
+          && request.resource.data.dataUrl.size() < 900000
+          && request.resource.data.addedBy == request.auth.uid
+          && request.resource.data.keys().hasOnly(['kind', 'name', 'dataUrl', 'uploadedAt', 'addedBy']);
         // AI check may only flag/suggest (server-written); no client may set a decision.
         allow update, delete: if false;
       }
@@ -94,9 +110,27 @@ service cloud.firestore {
     // Written by an admin only, and only these PII-free keys.
     match /publicCases/{id} {
       allow read: if true;
-      allow create, update: if isAdmin()
-        && request.resource.data.keys().hasOnly(['category', 'description', 'amountNeeded', 'amountRaised', 'caseId']);
-      allow delete: if isAdmin();
+      allow create, update: if (role() == 'trustee' || isAdmin())
+        && request.resource.data.keys().hasOnly(['category', 'type', 'number', 'title', 'sadaat', 'description', 'amountNeeded', 'amountRaised', 'caseId']);
+      allow delete: if role() == 'trustee' || isAdmin();
+    }
+
+    // ---- case history and the applicant's "Updates for you" feed. Append-only. ----
+    match /caseEvents/{id} {
+      allow read: if signedIn() && (resource.data.applicantId == request.auth.uid || isStaff());
+      allow create: if signedIn()
+        && request.resource.data.actorId == request.auth.uid
+        && request.resource.data.kind in ['submitted', 'verified', 'approved', 'published', 'funded', 'paid_out', 'closed', 'declined', 'document_added', 'gift_received']
+        && request.resource.data.keys().hasOnly(['caseId', 'applicantId', 'caseNumber', 'caseTitle', 'kind', 'actorId', 'note', 'at'])
+        && (isStaff() || (request.resource.data.kind in ['submitted', 'document_added'] && request.resource.data.applicantId == request.auth.uid));
+      allow update, delete: if false;
+    }
+
+    // ---- case numbers: a counter that can only go up by one ----
+    match /counters/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn() && id == 'cases' && request.resource.data.n == 1 && request.resource.data.keys().hasOnly(['n']);
+      allow update: if signedIn() && id == 'cases' && request.resource.data.n == resource.data.n + 1 && request.resource.data.keys().hasOnly(['n']);
     }
     match /publicStats/{id} {
       allow read: if true;
@@ -115,7 +149,8 @@ service cloud.firestore {
       allow create: if request.resource.data.status == 'pending'
         && request.resource.data.amount is int && request.resource.data.amount > 0
         && (request.resource.data.fund in ['sehme_sadaat', 'general']
-            ? (request.resource.data.caseId is string && !('institutionId' in request.resource.data))
+            ? (request.resource.data.caseId is string && !('institutionId' in request.resource.data)
+               && get(/databases/$(database)/documents/cases/$(request.resource.data.caseId)).data.status == 'published')
             : (request.resource.data.fund == 'sehme_imam'
                && request.resource.data.institutionId is string && !('caseId' in request.resource.data)))
         && (request.resource.data.fund != 'sehme_sadaat'

@@ -17,6 +17,10 @@ export function isDonationAllowed(fund: FundType, target: DonationTarget): boole
       return target.kind === "institution" && target.ijazahVerified === true;
     case "general":
       return target.kind === "case";
+    // Lawajam dues and loan repayments are not gifts to a case or institution.
+    case "lawajam":
+    case "loan_repayment":
+      return false;
   }
 }
 

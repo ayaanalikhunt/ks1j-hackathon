@@ -34,6 +34,8 @@ beforeEach(async () => {
     await setDoc(doc(db, "communityProfiles", "bob"), { listed: true });
     await setDoc(doc(db, "cases", "c1"), { applicantId: "alice", status: "submitted", beneficiarySadaatVerified: false });
     await setDoc(doc(db, "cases", "cSyed"), { applicantId: "alice", status: "approved", beneficiarySadaatVerified: true });
+    await setDoc(doc(db, "cases", "cPub"), { applicantId: "alice", status: "published", beneficiarySadaatVerified: false });
+    await setDoc(doc(db, "cases", "cPubSyed"), { applicantId: "alice", status: "published", beneficiarySadaatVerified: true });
     await setDoc(doc(db, "cases", "cVer"), { applicantId: "alice", status: "verified", verifiedBy: "ver1" });
     await setDoc(doc(db, "institutions", "iOk"), { name: "ok", ijazahVerified: true });
     await setDoc(doc(db, "institutions", "iNo"), { name: "no", ijazahVerified: false });
@@ -135,10 +137,24 @@ describe("case workflow", () => {
     });
     await assertFails(updateDoc(doc(asUser("adm"), "cases", "cPaid"), decline("adm")));
   });
-  it("payout is admin level and only after approval", async () => {
-    await assertFails(updateDoc(doc(asUser("adm"), "cases", "cVer"), { status: "disbursed", disbursedBy: "adm" }));
+  it("payout cannot be written by any client, only by the payout function", async () => {
+    await assertFails(updateDoc(doc(asUser("adm"), "cases", "cSyed"), { status: "disbursed", disbursedBy: "adm" }));
+    await assertFails(updateDoc(doc(asUser("own"), "cases", "cSyed"), { status: "funded" }));
     await assertFails(updateDoc(doc(asUser("tru1"), "cases", "cSyed"), { status: "disbursed", disbursedBy: "tru1" }));
-    await assertSucceeds(updateDoc(doc(asUser("adm"), "cases", "cSyed"), { status: "disbursed", disbursedBy: "adm" }));
+  });
+  it("publish is for a trustee or admin, on an approved case, by themselves", async () => {
+    await assertSucceeds(updateDoc(doc(asUser("tru1"), "cases", "cSyed"), { status: "published", publishedBy: "tru1", publishedAt: new Date() }));
+    await assertFails(updateDoc(doc(asUser("ver1"), "cases", "cSyed"), { status: "published", publishedBy: "ver1" }));
+    await assertFails(updateDoc(doc(asUser("tru1"), "cases", "cVer"), { status: "published", publishedBy: "tru1" }));
+    await assertFails(updateDoc(doc(asUser("tru1"), "cases", "cSyed"), { status: "published", publishedBy: "tru2" }));
+  });
+  it("closing is admin level and only after payout", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "cases", "cPaid"), { applicantId: "alice", status: "disbursed" });
+    });
+    await assertSucceeds(updateDoc(doc(asUser("adm"), "cases", "cPaid"), { status: "closed", closedBy: "adm" }));
+    await assertFails(updateDoc(doc(asUser("tru1"), "cases", "cPaid"), { status: "closed", closedBy: "tru1" }));
+    await assertFails(updateDoc(doc(asUser("adm"), "cases", "cSyed"), { status: "closed", closedBy: "adm" }));
   });
   it("staff can set Sadaat status, applicants cannot", async () => {
     await assertSucceeds(updateDoc(doc(asUser("ver1"), "cases", "c1"), { beneficiarySadaatVerified: true }));
@@ -173,8 +189,10 @@ describe("applicant intake and proof documents", () => {
   });
   it("only the applicant adds proof, and only while the case is open", async () => {
     await assertFails(addDoc(collection(asUser("bob"), "cases", "c1", "documents"), { kind: "aadhaar", name: "x", dataUrl: img() }));
+    // Once a case is published or paid out, the applicant can no longer change its file.
+    await assertFails(addDoc(collection(asUser("alice"), "cases", "cPub", "documents"), { kind: "aadhaar", name: "x", dataUrl: img() }));
+    // Staff add documents through their own rule, which must name them (see the office-documents test).
     await assertFails(addDoc(collection(asUser("ver1"), "cases", "c1", "documents"), { kind: "aadhaar", name: "x", dataUrl: img() }));
-    await assertFails(addDoc(collection(asUser("alice"), "cases", "cSyed", "documents"), { kind: "aadhaar", name: "x", dataUrl: img() }));
   });
   it("proof is readable by staff and the applicant only, and never changeable", async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
@@ -186,6 +204,48 @@ describe("applicant intake and proof documents", () => {
     await assertFails(getDoc(doc(asUser("vol"), "cases", "c1", "documents", "d1")));
     await assertFails(updateDoc(doc(asUser("alice"), "cases", "c1", "documents", "d1"), { kind: "other" }));
     await assertFails(deleteDoc(doc(asUser("adm"), "cases", "c1", "documents", "d1")));
+  });
+});
+
+describe("case history, numbering and staff documents", () => {
+  const ev = (by: string, kind: string, extra = {}) => ({ caseId: "c1", applicantId: "alice", caseNumber: 1, caseTitle: "Fees", kind, actorId: by, at: new Date(), ...extra });
+  it("staff log events as themselves; applicants only log their own submission or documents", async () => {
+    await assertSucceeds(addDoc(collection(asUser("ver1"), "caseEvents"), ev("ver1", "verified")));
+    await assertSucceeds(addDoc(collection(asUser("alice"), "caseEvents"), ev("alice", "submitted")));
+    await assertFails(addDoc(collection(asUser("alice"), "caseEvents"), ev("alice", "approved")));
+    await assertFails(addDoc(collection(asUser("ver1"), "caseEvents"), ev("tru1", "verified")));
+    await assertFails(addDoc(collection(asUser("vol"), "caseEvents"), ev("vol", "approved")));
+    await assertFails(addDoc(collection(asUser("ver1"), "caseEvents"), ev("ver1", "verified", { secret: 1 })));
+  });
+  it("events are readable by the applicant and staff, and never edited", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "caseEvents", "e1"), ev("ver1", "verified"));
+    });
+    await assertSucceeds(getDoc(doc(asUser("alice"), "caseEvents", "e1")));
+    await assertSucceeds(getDoc(doc(asUser("adm"), "caseEvents", "e1")));
+    await assertFails(getDoc(doc(asUser("bob"), "caseEvents", "e1")));
+    await assertFails(getDoc(doc(asUser("vol"), "caseEvents", "e1")));
+    await assertFails(updateDoc(doc(asUser("adm"), "caseEvents", "e1"), { note: "x" }));
+    await assertFails(deleteDoc(doc(asUser("adm"), "caseEvents", "e1")));
+  });
+  it("case counter only goes up by one", async () => {
+    await assertSucceeds(setDoc(doc(asUser("alice"), "counters", "cases"), { n: 1 }));
+    await assertSucceeds(updateDoc(doc(asUser("bob"), "counters", "cases"), { n: 2 }));
+    await assertFails(updateDoc(doc(asUser("alice"), "counters", "cases"), { n: 10 }));
+    await assertFails(updateDoc(doc(asUser("alice"), "counters", "cases"), { n: 1 }));
+  });
+  it("staff add office documents with their own name; others cannot", async () => {
+    const pic = { kind: "income_proof", name: "slip.jpg", dataUrl: "data:image/jpeg;base64,AAAA", addedBy: "ver1" };
+    await assertSucceeds(addDoc(collection(asUser("ver1"), "cases", "c1", "documents"), pic));
+    await assertFails(addDoc(collection(asUser("ver1"), "cases", "c1", "documents"), { ...pic, addedBy: "tru1" }));
+    await assertFails(addDoc(collection(asUser("vol"), "cases", "c1", "documents"), { ...pic, addedBy: "vol" }));
+    await assertFails(addDoc(collection(asUser("ver1"), "cases", "cPub", "documents"), pic));
+  });
+  it("trustees can publish a PII-free card", async () => {
+    const card = { caseId: "c1", category: "welfare", type: "medical", number: 1, title: "Fees", sadaat: false, description: "d", amountNeeded: 10, amountRaised: 0 };
+    await assertSucceeds(setDoc(doc(asUser("tru1"), "publicCases", "pub-c1"), card));
+    await assertFails(setDoc(doc(asUser("ver1"), "publicCases", "pub-c2"), card));
+    await assertFails(setDoc(doc(asUser("tru1"), "publicCases", "pub-c3"), { ...card, phone: "+91 12345 67890" }));
   });
 });
 
@@ -209,11 +269,16 @@ describe("privacy", () => {
 describe("rule 2: fund separation", () => {
   const pending = (extra: object) => ({ status: "pending", amount: 500, payerId: null, ...extra });
   it("general: any case", async () => {
-    await assertSucceeds(addDoc(collection(anon(), "donations"), pending({ fund: "general", caseId: "c1" })));
+    await assertSucceeds(addDoc(collection(anon(), "donations"), pending({ fund: "general", caseId: "cPub" })));
   });
   it("sehme sadaat: only verified Sadaat beneficiary", async () => {
-    await assertSucceeds(addDoc(collection(anon(), "donations"), pending({ fund: "sehme_sadaat", caseId: "cSyed" })));
-    await assertFails(addDoc(collection(anon(), "donations"), pending({ fund: "sehme_sadaat", caseId: "c1" })));
+    await assertSucceeds(addDoc(collection(anon(), "donations"), pending({ fund: "sehme_sadaat", caseId: "cPubSyed" })));
+    await assertFails(addDoc(collection(anon(), "donations"), pending({ fund: "sehme_sadaat", caseId: "cPub" })));
+  });
+  it("donors can only give to a published case", async () => {
+    await assertFails(addDoc(collection(anon(), "donations"), pending({ fund: "general", caseId: "c1" })));
+    await assertFails(addDoc(collection(anon(), "donations"), pending({ fund: "general", caseId: "cSyed" })));
+    await assertFails(addDoc(collection(anon(), "donations"), pending({ fund: "general", caseId: "cVer" })));
   });
   it("sehme imam: only ijazah-verified institutions, never cases", async () => {
     await assertSucceeds(addDoc(collection(anon(), "donations"), pending({ fund: "sehme_imam", institutionId: "iOk" })));

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  addDoc,
   collection,
   deleteDoc,
   doc,
@@ -11,27 +12,35 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
+import { getFunctions, httpsCallable } from "firebase/functions";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import {
   CASE_STATUS_LABELS,
+  CASE_TYPE_LABELS,
   CATEGORY_LABELS,
   DECLINE_LABELS,
   DECLINE_REASONS,
+  DOC_KINDS,
   DOC_LABELS,
   MIN_DECLINE_NOTE,
-  REQUIRED_DOCS,
+  STAFF_EVENT_TEXT,
   canApprove,
   formatRupees,
   isAdminLike,
   isStaff,
+  requiredDocs,
+  type CaseType,
   type DeclineReason,
   type DocKind,
+  type EventKind,
 } from "@ks1j/shared";
 import { Banner, Button, Card, PageHeader } from "@/components/ui";
+import { Tracker } from "@/components/Tracker";
 import { useAuth } from "@/lib/auth";
-import { db } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
+import { compressImage } from "@/lib/image";
 import { useCollection } from "@/lib/useCollection";
 
 interface Case {
@@ -40,10 +49,15 @@ interface Case {
   applicantPhone?: string;
   applicantAddress?: string;
   applicantCity?: string;
+  number?: number;
+  title?: string;
+  type?: CaseType;
   category: string;
   requirement?: string;
   description?: string;
   amountRequested?: number;
+  raised?: number;
+  sadaatClaimed?: boolean;
   familyMembers?: number;
   earningMembers?: number;
   monthlyIncome?: number;
@@ -53,6 +67,7 @@ interface Case {
   beneficiarySadaatVerified?: boolean;
   verifiedBy?: string;
   approvedBy?: string;
+  publishedBy?: string;
   declinedBy?: string;
   declineReason?: DeclineReason;
   declineNote?: string;
@@ -63,9 +78,18 @@ interface ProofDoc {
   kind: DocKind;
   name?: string;
   dataUrl: string;
+  addedBy?: string;
+}
+
+interface CaseEventRow {
+  kind: EventKind;
+  actorId: string;
+  note?: string | null;
+  at?: { toDate(): Date } | null;
 }
 
 const GHOST = "!bg-card !text-fg border border-line";
+const payOutCase = httpsCallable(getFunctions(auth.app, "asia-south1"), "payOutCase");
 
 function Row({ k, v }: { k: string; v: React.ReactNode }) {
   return (
@@ -95,15 +119,18 @@ function Review() {
   const [reason, setReason] = useState<DeclineReason>("insufficient_proof");
   const [note, setNote] = useState("");
   const [denying, setDenying] = useState(false);
+  const [sadaatChecked, setSadaatChecked] = useState(false);
+  const [addKind, setAddKind] = useState<DocKind>("income_proof");
   const [zoom, setZoom] = useState<ProofDoc | null>(null);
   const [msg, setMsg] = useState<{ error: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
   const members = useCollection<{ fullName: string }>("members");
   const docs = useCollection<ProofDoc>(id ? `cases/${id}/documents` : "cases/none/documents");
+  const [events, setEvents] = useState<(CaseEventRow & { id: string })[]>([]);
   const [gifts, setGifts] = useState<{ amount: number; status: string }[]>([]);
 
-  const nameOf = (u?: string) => (u ? (members.rows.find((m) => m.id === u)?.fullName ?? "A staff member") : "");
+  const nameOf = (u?: string) => (u === "system" ? "The system" : u ? (members.rows.find((m) => m.id === u)?.fullName ?? "A staff member") : "");
 
   useEffect(() => {
     if (!id) return;
@@ -113,6 +140,16 @@ function Review() {
       onSnapshot(
         query(collection(db, "donations"), where("caseId", "==", id)),
         (s) => setGifts(s.docs.map((d) => d.data() as { amount: number; status: string })),
+        () => {},
+      ),
+      onSnapshot(
+        query(collection(db, "caseEvents"), where("caseId", "==", id)),
+        (s) =>
+          setEvents(
+            s.docs
+              .map((d) => ({ id: d.id, ...(d.data() as CaseEventRow) }))
+              .sort((a, b) => (a.at?.toDate().getTime() ?? Infinity) - (b.at?.toDate().getTime() ?? Infinity)),
+          ),
         () => {},
       ),
     ];
@@ -133,47 +170,113 @@ function Review() {
   }
 
   const ref = doc(db, "cases", id);
-  const verify = () => act(() => updateDoc(ref, { status: "verified", verifiedBy: uid, verifiedAt: serverTimestamp() }), "Given. It is verified and now waits for approval by a different person.");
-  const approve = () => act(() => updateDoc(ref, { status: "approved", approvedBy: uid, approvedAt: serverTimestamp() }), "Given. It is approved and ready for payout.");
-  const payout = () => act(() => updateDoc(ref, { status: "disbursed", disbursedBy: uid, disbursedAt: serverTimestamp() }), "Money handed over. The case is closed.");
-  const toggleSadaat = () => act(() => updateDoc(ref, { beneficiarySadaatVerified: !c?.beneficiarySadaatVerified }), "Sadaat status updated.");
+  const need = c?.requirement ?? c?.description ?? "";
+  const log = (kind: EventKind, text?: string) =>
+    addDoc(collection(db, "caseEvents"), {
+      caseId: id,
+      applicantId: c!.applicantId,
+      caseNumber: c!.number ?? null,
+      caseTitle: c!.title ?? need.slice(0, 60),
+      kind,
+      actorId: uid,
+      ...(text ? { note: text } : {}),
+      at: serverTimestamp(),
+    });
+
+  const verify = () =>
+    act(async () => {
+      await updateDoc(ref, {
+        status: "verified",
+        verifiedBy: uid,
+        verifiedAt: serverTimestamp(),
+        // Ticked: the Aadhaar was checked and the family is Sadaat. Unticked: it continues as a non-Sadaat case.
+        beneficiarySadaatVerified: sadaatChecked,
+        sadaatCheckedBy: uid,
+      });
+      await log("verified");
+    }, "Given. It is verified and now waits for approval by a different person.");
+  const approve = () =>
+    act(async () => {
+      await updateDoc(ref, { status: "approved", approvedBy: uid, approvedAt: serverTimestamp() });
+      await log("approved");
+    }, "Given. It is approved and can now be published to donors.");
+  const publicText = editedText ?? `${CASE_TYPE_LABELS[c?.type as CaseType] ?? CATEGORY_LABELS[c?.category ?? ""] ?? ""}: ${need}`.slice(0, 280);
+  const publish = () =>
+    act(async () => {
+      await setDoc(doc(db, "publicCases", `pub-${id}`), {
+        caseId: id,
+        category: c!.category,
+        type: c!.type ?? "",
+        number: c!.number ?? 0,
+        title: c!.title ?? "",
+        sadaat: c!.beneficiarySadaatVerified === true,
+        description: publicText.trim(),
+        amountNeeded: c!.amountRequested ?? 0,
+        amountRaised: c!.raised ?? 0,
+      });
+      await updateDoc(ref, { status: "published", publishedBy: uid, publishedAt: serverTimestamp() });
+      await log("published");
+    }, "Published. Donors can see it now. The public card has no names or contact details.");
+  const payout = () => act(() => payOutCase({ caseId: id }), "Money handed over. The ledger entry is recorded.");
+  const close = () =>
+    act(async () => {
+      await updateDoc(ref, { status: "closed", closedBy: uid, closedAt: serverTimestamp() });
+      await log("closed");
+    }, "Case closed.");
   const deny = () =>
     act(async () => {
       await updateDoc(ref, { status: "declined", declinedBy: uid, declinedAt: serverTimestamp(), declineReason: reason, declineNote: note.trim() });
-      // A denied case must not stay on the public list.
-      if (isAdminLike(role) && cardExists) await deleteDoc(doc(db, "publicCases", `pub-${id}`));
+      await log("declined", `${DECLINE_LABELS[reason]}: ${note.trim()}`);
+      if (cardExists && (isAdminLike(role) || role === "trustee")) await deleteDoc(doc(db, "publicCases", `pub-${id}`));
       setDenying(false);
     }, "Case denied. The reason is recorded and the applicant can see it.");
-  const publish = () =>
-    act(
-      () => setDoc(doc(db, "publicCases", `pub-${id}`), { caseId: id, category: c!.category, description: publicText.trim(), amountNeeded: c!.amountRequested ?? 0, amountRaised: 0 }),
-      "Published. The public card contains no names or contact details.",
-    );
+  const addOfficeDoc = (file: File | undefined) => {
+    if (!file) return;
+    return act(async () => {
+      const dataUrl = await compressImage(file);
+      await addDoc(collection(db, "cases", id, "documents"), { kind: addKind, name: file.name, dataUrl, uploadedAt: serverTimestamp(), addedBy: uid });
+      await log("document_added", DOC_LABELS[addKind]);
+    }, `${DOC_LABELS[addKind]} added to the file.`);
+  };
 
   if (c === undefined) return <p>Loading…</p>;
   if (c === null) return <Banner>Case not found, or you do not have access.</Banner>;
   if (!member || !isStaff(member.role)) return <Banner kind="error">Only committee staff can review cases.</Banner>;
 
-  const need = c.requirement ?? c.description ?? "";
-  const publicText = editedText ?? `${CATEGORY_LABELS[c.category] ?? c.category}: ${need}`.slice(0, 280);
   const open = ["submitted", "verified", "approved"].includes(c.status);
   const iVerified = c.verifiedBy === uid;
-  const canVerify = (role === "verifier" || isAdminLike(role)) && c.status === "submitted";
-  const canApproveNow = (role === "trustee" || isAdminLike(role)) && c.status === "verified";
-  const canPayout = c.status === "approved" && isAdminLike(role);
+  const adminLike = isAdminLike(role);
+  const can = {
+    verify: (role === "verifier" || adminLike) && c.status === "submitted",
+    approve: (role === "trustee" || adminLike) && c.status === "verified",
+    publish: (role === "trustee" || adminLike) && c.status === "approved",
+    payout: adminLike && c.status === "funded",
+    close: adminLike && c.status === "disbursed",
+  };
+  const give = can.verify ? verify : can.approve ? approve : can.publish ? publish : can.payout ? payout : can.close ? close : null;
+  const giveLabel = can.verify ? "Give this case: verify it" : can.approve ? "Give this case: approve it" : can.publish ? "Give this case: publish it to donors" : can.payout ? "Give this case: hand over the money" : can.close ? "Close this case" : "Give this case";
+  const waiting =
+    c.status === "submitted" ? "Waiting for a verifier or an admin."
+    : c.status === "verified" ? "Waiting for a trustee or an admin, who must be someone other than the verifier."
+    : c.status === "approved" ? "Waiting for a trustee or an admin to publish it."
+    : c.status === "published" ? "Live for donors. It becomes fully funded when the gifts are confirmed."
+    : c.status === "funded" ? "Fully funded. Waiting for an admin to hand over the money."
+    : c.status === "disbursed" ? "Paid out. An admin can close it."
+    : "";
   const paid = gifts.filter((g) => g.status === "paid").reduce((s, g) => s + g.amount, 0);
   const pending = gifts.filter((g) => g.status === "pending").reduce((s, g) => s + g.amount, 0);
   const have = new Set(docs.rows.map((d) => d.kind));
-  const missing = REQUIRED_DOCS.filter((k) => !have.has(k));
+  const expected = requiredDocs(c.type);
+  const missing = expected.filter((k) => !have.has(k));
   const perHead = c.familyMembers && c.monthlyIncome != null ? Math.round(c.monthlyIncome / c.familyMembers) : null;
-
-  const next = canVerify ? "Verify it and send it to approval" : canApproveNow ? "Approve it for payout" : canPayout ? "Hand over the money" : null;
-  const giveNow = canVerify ? verify : canApproveNow ? approve : canPayout ? payout : null;
+  const heading = `${c.number ? `#${c.number} ` : ""}${c.title || CASE_TYPE_LABELS[c.type as CaseType] || CATEGORY_LABELS[c.category] || "Case"}`;
+  const approveBlocked = can.approve && !canApprove(c.verifiedBy, uid);
 
   return (
     <>
       <Link href="/admin/cases" className="mb-3 inline-block text-sm underline">← All cases</Link>
-      <PageHeader eyebrow={`Case · ${CATEGORY_LABELS[c.category] ?? c.category}`} title={CASE_STATUS_LABELS[c.status] ?? c.status} />
+      <PageHeader eyebrow={`Case · ${CATEGORY_LABELS[c.category] ?? c.category}${c.sadaatClaimed ? " · Sadaat" : ""}`} title={heading} />
+      <div className="mb-4"><Tracker status={c.status} /></div>
       {msg && <div className="mb-3"><Banner kind={msg.error ? "error" : "info"}>{msg.text}</Banner></div>}
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -181,8 +284,10 @@ function Review() {
           <Section title="The requirement">
             <p className="whitespace-pre-wrap">{need || "Nothing was written."}</p>
             <div className="mt-3">
+              <Row k="Type" v={CASE_TYPE_LABELS[c.type as CaseType] ?? "Not given"} />
               <Row k="Amount requested" v={formatRupees(c.amountRequested ?? 0)} />
-              <Row k="Sadaat beneficiary" v={c.beneficiarySadaatVerified ? "Verified" : "Not verified"} />
+              <Row k="Raised so far" v={formatRupees(c.raised ?? 0)} />
+              <Row k="Sadaat (Syed)" v={c.beneficiarySadaatVerified ? "Aadhaar checked, verified" : c.sadaatClaimed ? "Claimed, not yet checked" : "No"} />
             </div>
           </Section>
 
@@ -204,13 +309,29 @@ function Review() {
             <h3 className="mt-3 font-semibold">Family background</h3>
             <p className="whitespace-pre-wrap text-muted">{c.familyHistory || "Nothing was written."}</p>
           </Section>
+
+          <Section title="History">
+            {events.length === 0 ? (
+              <p className="text-muted">Nothing yet.</p>
+            ) : (
+              <ol className="space-y-2">
+                {events.map((e) => (
+                  <li key={e.id} className="border-l-2 border-brand pl-3 text-sm">
+                    <span className="font-semibold">{STAFF_EVENT_TEXT[e.kind] ?? e.kind}</span>
+                    <span className="text-muted"> · {nameOf(e.actorId)} · {e.at ? e.at.toDate().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) : "just now"}</span>
+                    {e.note && <p className="text-muted">{e.note}</p>}
+                  </li>
+                ))}
+              </ol>
+            )}
+          </Section>
         </div>
 
         <div className="space-y-4">
-          <Section title="Verification documents">
+          <Section title="Documents">
             {missing.length > 0 && (
               <div className="mb-3">
-                <Banner kind="error">Missing: {missing.map((k) => DOC_LABELS[k]).join(", ")}. If the person cannot be confirmed, deny the case.</Banner>
+                <Banner kind="error">Not yet provided: {missing.map((k) => DOC_LABELS[k].toLowerCase()).join(", ")}.</Banner>
               </div>
             )}
             {docs.rows.length === 0 ? (
@@ -222,37 +343,57 @@ function Review() {
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={d.dataUrl} alt={DOC_LABELS[d.kind] ?? d.kind} className="h-36 w-full rounded-lg border border-line bg-bg object-contain" />
                     <span className="mt-1 block text-sm font-medium">{DOC_LABELS[d.kind] ?? d.kind}</span>
+                    {d.addedBy && <span className="block text-xs text-muted">Added at the office by {nameOf(d.addedBy)}</span>}
                   </button>
                 ))}
               </div>
             )}
             <p className="mt-2 text-sm text-muted">Tap a document to enlarge it. Compare the name and address with what the applicant wrote.</p>
+            {open && (
+              <div className="mt-4 space-y-2 border-t border-line pt-3">
+                <h3 className="font-semibold">Add a document brought to the office</h3>
+                <div className="flex flex-wrap items-center gap-2">
+                  <select className="min-h-11 rounded-xl border border-line bg-bg px-3" value={addKind} onChange={(e) => setAddKind(e.target.value as DocKind)}>
+                    {DOC_KINDS.map((k) => (
+                      <option key={k} value={k}>{DOC_LABELS[k]}</option>
+                    ))}
+                  </select>
+                  <label className="inline-flex min-h-11 cursor-pointer items-center rounded-xl border border-line bg-card px-4 text-sm font-semibold">
+                    Choose photo
+                    <input type="file" accept="image/*" className="sr-only" disabled={busy} onChange={(e) => { addOfficeDoc(e.target.files?.[0]); e.target.value = ""; }} />
+                  </label>
+                </div>
+              </div>
+            )}
           </Section>
 
-          {open && (
+          {(open || c.status === "published" || c.status === "funded" || c.status === "disbursed") && (
             <Card>
               <h2 className="mb-3 font-display text-xl">Your decision</h2>
-              <div className="flex flex-wrap gap-3">
-                <Button disabled={busy || !giveNow || (canApproveNow && !canApprove(c.verifiedBy, uid))} onClick={() => giveNow?.()}>
-                  Give this case
-                </Button>
-                <Button className={GHOST} disabled={busy} onClick={() => setDenying((v) => !v)}>
-                  Deny this case
-                </Button>
-              </div>
-              {next ? (
-                <p className="mt-2 text-sm text-muted">Giving it will: {next.toLowerCase()}.</p>
-              ) : (
-                <p className="mt-2 text-sm text-muted">
-                  {c.status === "submitted" ? "Waiting for a verifier or an admin." : c.status === "verified" ? "Waiting for a trustee or an admin." : "Waiting for an admin."}
-                </p>
+
+              {can.verify && (
+                <label className="mb-3 flex items-start gap-2 rounded-xl border border-line p-3 text-sm">
+                  <input type="checkbox" className="mt-1" checked={sadaatChecked} onChange={(e) => setSadaatChecked(e.target.checked)} />
+                  <span>
+                    I have checked the Aadhaar card: this family is Sadaat (Syed).
+                    {c.sadaatClaimed && !sadaatChecked && <span className="block text-muted">Left unticked, the case continues as non-Sadaat.</span>}
+                  </span>
+                </label>
               )}
-              {canApproveNow && iVerified && <p className="mt-1 text-sm text-muted">You verified this case, so a different person must approve it.</p>}
-              <div className="mt-3">
-                <Button className={GHOST} disabled={busy} onClick={toggleSadaat}>
-                  {c.beneficiarySadaatVerified ? "Remove Sadaat status" : "Confirm Sadaat beneficiary"}
+
+              <div className="flex flex-wrap gap-3">
+                <Button disabled={busy || !give || approveBlocked} onClick={() => give?.()}>
+                  {giveLabel}
                 </Button>
+                {open && (
+                  <Button className={GHOST} disabled={busy} onClick={() => setDenying((v) => !v)}>
+                    Deny this case
+                  </Button>
+                )}
               </div>
+              {waiting && <p className="mt-2 text-sm text-muted">{waiting}</p>}
+              {approveBlocked && iVerified && <p className="mt-1 text-sm text-muted">You verified this case, so a different person must approve it.</p>}
+              {missing.length > 0 && c.status === "submitted" && <p className="mt-1 text-sm text-muted">Some documents are missing. Check them before you verify.</p>}
 
               {denying && (
                 <div className="mt-4 space-y-3 border-t border-line pt-4">
@@ -269,29 +410,27 @@ function Review() {
                     <span className="mb-1 block text-sm font-medium">What is missing or wrong? (the applicant will see this)</span>
                     <textarea className="min-h-20 w-full rounded-xl border border-line bg-bg p-3" value={note} onChange={(e) => setNote(e.target.value)} />
                   </label>
-                  <Banner kind="error">This removes the case from the queue and from the public list.</Banner>
+                  <Banner kind="error">This removes the case from the queue. It cannot be undone.</Banner>
                   <Button disabled={busy || note.trim().length < MIN_DECLINE_NOTE} onClick={deny}>
                     Confirm: deny this case
                   </Button>
                 </div>
               )}
 
-              {c.status === "approved" && isAdminLike(role) && (
+              {(c.status === "approved" || c.status === "published") && (can.publish || cardExists) && (
                 <div className="mt-4 space-y-2 border-t border-line pt-4">
-                  <h3 className="font-semibold">{cardExists ? "Public card" : "Show to donors"}</h3>
-                  <textarea className="min-h-20 w-full rounded-xl border border-line bg-bg p-3" maxLength={280} value={publicText} onChange={(e) => setEditedText(e.target.value)} />
-                  <p className="text-sm text-muted">Remove any names, places or phone numbers before publishing.</p>
-                  <Button className={GHOST} disabled={busy || !publicText.trim()} onClick={publish}>
-                    {cardExists ? "Update public card" : "Publish public card"}
-                  </Button>
+                  <h3 className="font-semibold">What donors will read</h3>
+                  <textarea className="min-h-20 w-full rounded-xl border border-line bg-bg p-3" maxLength={280} value={publicText} onChange={(e) => setEditedText(e.target.value)} disabled={c.status === "published"} />
+                  <p className="text-sm text-muted">Remove any names, places or phone numbers before publishing. Donors never see the applicant.</p>
                 </div>
               )}
             </Card>
           )}
 
-          <Section title="Review trail">
+          <Section title="Sign-offs">
             <Row k="Verified by" v={c.verifiedBy ? nameOf(c.verifiedBy) : "Not yet"} />
             <Row k="Approved by" v={c.approvedBy ? nameOf(c.approvedBy) : "Not yet"} />
+            <Row k="Published by" v={c.publishedBy ? nameOf(c.publishedBy) : "Not yet"} />
             {c.disbursedBy && <Row k="Money handed over by" v={nameOf(c.disbursedBy)} />}
             {c.status === "declined" && (
               <>
@@ -304,9 +443,9 @@ function Review() {
           </Section>
 
           <Section title="Money for this case">
-            <Row k="Received" v={formatRupees(paid)} />
+            <Row k="Confirmed gifts" v={formatRupees(paid)} />
             <Row k="Pledged, not yet confirmed" v={formatRupees(pending)} />
-            <Row k="On the public list" v={cardExists ? "Yes" : "No"} />
+            <Row k="Status" v={CASE_STATUS_LABELS[c.status] ?? c.status} />
           </Section>
         </div>
       </div>

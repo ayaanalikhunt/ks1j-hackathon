@@ -10,12 +10,15 @@ export const CASE_STATUSES = [
   "submitted",
   "verified",
   "approved",
+  "published",
+  "funded",
   "disbursed",
+  "closed",
   "declined",
 ] as const;
 export type CaseStatus = (typeof CASE_STATUSES)[number];
 
-export const FUND_TYPES = ["sehme_sadaat", "sehme_imam", "general"] as const;
+export const FUND_TYPES = ["sehme_sadaat", "sehme_imam", "general", "lawajam", "loan_repayment"] as const;
 export type FundType = (typeof FUND_TYPES)[number];
 
 export const PAYMENT_STATUSES = ["pending", "paid"] as const;
