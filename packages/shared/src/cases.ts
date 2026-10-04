@@ -162,8 +162,8 @@ export const MEMBER_EVENT_TEXT: Record<EventKind, string> = {
   declined: "Your request was not approved. Please contact the Jamaat office if you have questions.",
   document_added: "A document was added to your request.",
   gift_received: "A donor has given to your request.",
-  gift_allocated: "A donor's gift was allocated to your request.",
-  gift_refunded: "A gift to your request was refunded.",
+  gift_allocated: "A donor's donation was allocated to your request.",
+  gift_refunded: "A donation to your request was refunded.",
   verification_recorded: "The committee recorded a verification step on your request.",
   emergency_exception: "The committee marked your request as urgent.",
 };
@@ -179,9 +179,9 @@ export const STAFF_EVENT_TEXT: Record<EventKind, string> = {
   closed: "Closed",
   declined: "Denied",
   document_added: "Document added",
-  gift_received: "Gift received",
-  gift_allocated: "Gift allocated",
-  gift_refunded: "Gift refunded",
+  gift_received: "Donation received",
+  gift_allocated: "Donation allocated",
+  gift_refunded: "Donation refunded",
   verification_recorded: "Verification recorded",
   emergency_exception: "Emergency exception granted",
 };

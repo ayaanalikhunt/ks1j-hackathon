@@ -122,13 +122,13 @@ function Form() {
     }
   }
 
-  if (!user) return <Banner>Please <Link className="underline" href="/login">sign in</Link> to donate, so you can see where your gift goes.</Banner>;
+  if (!user) return <Banner>Please <Link className="underline" href="/login">sign in</Link> to donate, so you can see where your donation goes.</Banner>;
 
   return (
     <Card>
       {caseId && (
         <div className="mb-3 text-sm text-muted">
-          <p>This gift goes to {card ? `case ${card.publicCaseId ?? "#" + card.number}: ${card.title ?? ""}` : "the case you chose"}. A donation is money given without repayment.</p>
+          <p>This donation goes to {card ? `case ${card.publicCaseId ?? "#" + card.number}: ${card.title ?? ""}` : "the case you chose"}. A donation is money given without repayment.</p>
           {card?.sadaat && (
             <fieldset className="mt-2 space-y-1">
               <legend className="text-sm font-medium text-fg">Which fund?</legend>
@@ -210,7 +210,7 @@ export default function Donate() {
     <>
       <SiteHeader />
       <main className="mx-auto max-w-2xl px-4 py-10">
-        <PageHeader eyebrow="Give" title="Donate" intro="Choose a purpose, see every number before you pay, and follow your gift afterwards." />
+        <PageHeader eyebrow="Give" title="Donate" intro="Choose a purpose, see every number before you pay, and follow your donation afterwards." />
         <Suspense fallback={null}>
           <Form />
         </Suspense>

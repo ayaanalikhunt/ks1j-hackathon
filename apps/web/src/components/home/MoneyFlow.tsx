@@ -9,7 +9,7 @@ const STAGES = ["Donation", "Fund", "Verification", "Approval", "Payment", "Rece
 const LANES: { name: string; note: string; steps: string[] }[] = [
   { name: "Sehme Imam", note: "Half of Khums", steps: ["Khums share", "Sehme Imam account", "Payment confirmed", "Institution with a verified ijazah", "Paid to the institution", "Receipt"] },
   { name: "Sehme Sadaat", note: "Half of Khums", steps: ["Khums share", "Sehme Sadaat account", "Payment confirmed", "Verified Sadaat case only", "Paid to the case", "Receipt"] },
-  { name: "General donations", note: "Welfare and education", steps: ["Your gift", "General fund", "Payment confirmed", "Case approved by a second member", "Paid to the hospital, school or family", "Receipt"] },
+  { name: "General donations", note: "Welfare and education", steps: ["Your donation", "General fund", "Payment confirmed", "Case approved by a second member", "Paid to the hospital, school or family", "Receipt"] },
   { name: "Loan repayments", note: "Interest-free loans", steps: ["Monthly repayment", "Loan account", "Office confirms", "Recorded against the loan", "Back into the loan fund", "Receipt"] },
   { name: "Lawajam", note: "Household dues", steps: ["Yearly dues", "Lawajam account", "Office confirms", "Recorded for the household", "Spent only from Lawajam", "Receipt"] },
 ];

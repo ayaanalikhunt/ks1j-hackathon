@@ -316,7 +316,7 @@ function Review() {
     c.status === "submitted" ? "Waiting for a verifier or an admin."
     : c.status === "verified" ? "Waiting for a trustee or an admin, who must be someone other than the verifier."
     : c.status === "approved" ? "Waiting for a trustee or an admin to publish it."
-    : c.status === "published" ? "Live for donors. It becomes fully funded when the gifts are confirmed."
+    : c.status === "published" ? "Live for donors. It becomes fully funded when the donations are confirmed."
     : c.status === "funded" ? "Fully funded. Waiting for an admin to hand over the money."
     : c.status === "disbursed" ? "Paid out. An admin can close it."
     : "";
@@ -592,7 +592,7 @@ function Review() {
           </Section>
 
           <Section title="Money for this case">
-            <Row k="Confirmed gifts" v={formatRupees(paid)} />
+            <Row k="Confirmed donations" v={formatRupees(paid)} />
             <Row k="Pledged, not yet confirmed" v={formatRupees(pending)} />
             <Row k="Status" v={CASE_STATUS_LABELS[c.status] ?? c.status} />
           </Section>

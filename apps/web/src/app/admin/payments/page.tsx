@@ -70,7 +70,7 @@ export default function AdminPayments() {
       <PageHeader
         eyebrow="Committee dashboard"
         title="Payments"
-        intro="A gift stays pending until an admin confirms the money has arrived. Confirming appends a ledger entry."
+        intro="A donation stays pending until an admin confirms the money has arrived. Confirming appends a ledger entry."
       />
       <h2 className="mb-2 font-display text-2xl">Donations</h2>
       <PaymentTable kind="donation" path="donations" />

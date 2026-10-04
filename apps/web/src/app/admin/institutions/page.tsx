@@ -84,7 +84,7 @@ export default function AdminInstitutions() {
 
   const verify = (id: string) =>
     run(() => updateDoc(doc(db, "institutions", id), { ijazahVerified: true, verifiedBy: uid, verifiedAt: serverTimestamp() }), "Verified. Members can now give Sehme Imam to this institution.");
-  const toggle = (id: string, receiving: boolean) => run(() => updateDoc(doc(db, "institutions", id), { receiving: !receiving }), receiving ? "Gifts paused." : "Gifts resumed.");
+  const toggle = (id: string, receiving: boolean) => run(() => updateDoc(doc(db, "institutions", id), { receiving: !receiving }), receiving ? "Donations paused." : "Donations resumed.");
 
   const waiting = rows.filter((i) => !i.ijazahVerified);
   const verified = rows.filter((i) => i.ijazahVerified);

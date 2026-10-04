@@ -67,9 +67,9 @@ export default function Donors() {
             { head: "Donor", cell: (r) => <Link className="font-semibold underline" href={`/admin/donors/detail?id=${r.id}`}>{r.name}</Link> },
             { head: "Country", cell: (r) => r.country ?? "" },
             { head: "Currency", cell: (r) => r.preferredCurrency ?? "" },
-            { head: "Verified gifts", cell: (r) => r.donationCount },
+            { head: "Verified donations", cell: (r) => r.donationCount },
             { head: "Total given", cell: (r) => formatRupees(r.totalDonated) },
-            { head: "Last gift", cell: (r) => (r.lastDonationAt ? formatDate(new Date(r.lastDonationAt)) : "") },
+            { head: "Last donation", cell: (r) => (r.lastDonationAt ? formatDate(new Date(r.lastDonationAt)) : "") },
             { head: "Profile", cell: (r) => (r.hasProfile ? "Yes" : "Not set up") },
           ]}
         />

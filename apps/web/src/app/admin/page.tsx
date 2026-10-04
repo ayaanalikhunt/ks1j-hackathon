@@ -58,7 +58,7 @@ export default function Overview() {
 
           <h2 className="mb-3 font-display text-2xl">Needs attention</h2>
           <div className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-3">
-            <Stat n={by(donations.rows, "pending")} label="Gifts to confirm" who="Admin" href="/admin/payments" />
+            <Stat n={by(donations.rows, "pending")} label="Donations to confirm" who="Admin" href="/admin/payments" />
             <Stat n={by(loans.rows, "applied")} label="Loan applications to check" who="Verifier and trustee" href="/admin/loans" />
             <Stat n={by(loans.rows, "emi_pending_agreement")} label="Loans awaiting agreement" who="Family and trustee" href="/admin/loans" />
             <Stat n={by(reports.rows, "open")} label="Open community reports" who="Moderators" href="/admin/community" />

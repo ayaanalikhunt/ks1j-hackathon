@@ -122,7 +122,7 @@ export default function Donate() {
   return (
     <RequireAuth eyebrow={t("donate.1")} title={t("donate.2")}>
       <Screen eyebrow={t("donate.1")} title={t("donate.2")} intro={t("donate.3")}>
-        {target && <Banner>Your gift goes to {target}. A donation is money given without repayment.</Banner>}
+        {target && <Banner>Your donation goes to {target}. A donation is money given without repayment.</Banner>}
         {caseId && card?.sadaat && (
           <View style={{ gap: 8 }}>
             <Body bold>{t("donate.10")}</Body>

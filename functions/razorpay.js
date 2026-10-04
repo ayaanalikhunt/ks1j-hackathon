@@ -84,7 +84,7 @@ async function quoteFrom(data) {
     throw new HttpsError("invalid-argument", e.message);
   }
   if (q.donationInr < MIN_INR) throw new HttpsError("invalid-argument", `The minimum donation is ₹${MIN_INR}.`);
-  if (q.donationInr > MAX_INR) throw new HttpsError("invalid-argument", "For gifts this large, please contact the committee.");
+  if (q.donationInr > MAX_INR) throw new HttpsError("invalid-argument", "For donations this large, please contact the committee.");
   return { ...q, methods: methodsFor(currency, cfg), rateAsOf: asOf.toISOString(), rateStale: Boolean(stale) };
 }
 
@@ -125,7 +125,7 @@ exports.createDonationOrder = onCall({ ...REGION, secrets: [KEY_SECRET] }, async
   } else if (POOL_FUNDS.includes(d.fund)) {
     fund = d.fund;
   } else if (d.fund) {
-    throw new HttpsError("invalid-argument", "Choose a case or a fund that accepts online gifts.");
+    throw new HttpsError("invalid-argument", "Choose a case or a fund that accepts online donations.");
   }
 
   // A double click or a retry must not create a second donation: reuse an identical order made in the last two minutes.

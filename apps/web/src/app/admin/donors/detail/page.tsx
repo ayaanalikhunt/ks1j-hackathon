@@ -99,7 +99,7 @@ function Detail() {
           <Row k="Total given" v={formatRupees(d.totals.paidTotal)} />
           <Row k="Allocated to cases" v={formatRupees(d.totals.allocated)} />
           <Row k="Paid out" v={formatRupees(d.totals.disbursed)} />
-          <p className="mt-3 text-sm text-muted">Only references, amounts and stages are shown. A donor&apos;s gift never gives them, or you here, access to a beneficiary&apos;s details.</p>
+          <p className="mt-3 text-sm text-muted">Only references, amounts and stages are shown. A donor&apos;s donation never gives them, or you here, access to a beneficiary&apos;s details.</p>
         </Card>
       </div>
 

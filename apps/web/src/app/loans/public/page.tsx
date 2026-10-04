@@ -71,7 +71,7 @@ function Loan() {
           ))}
         </ol>
         <p className="mt-4 text-xs text-muted">
-          This is a loan to be repaid, not a gift. It carries no interest and no late fee. The borrower, the student and their school are never named.
+          This is a loan to be repaid, not a donation. It carries no interest and no late fee. The borrower, the student and their school are never named.
         </p>
       </Card>
     </>
