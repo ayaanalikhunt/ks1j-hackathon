@@ -1,5 +1,6 @@
 import { doc, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import { useState } from "react";
+import { useLang } from "@/lib/i18n";
 import { View } from "react-native";
 import { DONOR_CURRENCIES, DONOR_NOTIFICATION_KEYS, DONOR_NOTIFICATION_LABELS, donorWants, type DonorNotificationKey } from "@ks1j/shared";
 import { RequireAuth } from "@/components/RequireAuth";
@@ -18,6 +19,7 @@ interface Edits {
 }
 
 function Form({ uid, email, saved, fallbackName, fallbackPhone }: { uid: string; email: string; saved: Record<string, any> | null; fallbackName: string; fallbackPhone: string }) {
+  const { t } = useLang();
   const [edit, setEdit] = useState<Edits>({});
   const [msg, setMsg] = useState<{ error: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -48,7 +50,7 @@ function Form({ uid, email, saved, fallbackName, fallbackPhone }: { uid: string;
       if (saved) await updateDoc(doc(db, "donors", uid), data);
       else await setDoc(doc(db, "donors", uid), { ...data, createdAt: serverTimestamp() });
       setEdit({});
-      setMsg({ error: false, text: "Saved." });
+      setMsg({ error: false, text: t("dn.saved") });
     } catch (e) {
       setMsg({ error: true, text: (e as Error).message });
     } finally {
@@ -58,12 +60,12 @@ function Form({ uid, email, saved, fallbackName, fallbackPhone }: { uid: string;
 
   return (
     <>
-      <Heading>Your details</Heading>
-      <Field label="Full name" value={v.fullName} onChangeText={(t) => setEdit({ ...edit, fullName: t })} maxLength={80} />
-      <Field label="Name to show publicly (only if you choose Show my name)" value={v.displayName} onChangeText={(t) => setEdit({ ...edit, displayName: t })} maxLength={60} />
-      <Field label="Phone" value={v.phone} onChangeText={(t) => setEdit({ ...edit, phone: t })} keyboardType="phone-pad" maxLength={25} />
-      <Field label="Country" value={v.country} onChangeText={(t) => setEdit({ ...edit, country: t })} maxLength={60} />
-      <Body bold>Preferred currency</Body>
+      <Heading>{t("donorProfile.9")}</Heading>
+      <Field label={t("donorProfile.1")} value={v.fullName} onChangeText={(t) => setEdit({ ...edit, fullName: t })} maxLength={80} />
+      <Field label={t("donorProfile.2")} value={v.displayName} onChangeText={(t) => setEdit({ ...edit, displayName: t })} maxLength={60} />
+      <Field label={t("donorProfile.3")} value={v.phone} onChangeText={(t) => setEdit({ ...edit, phone: t })} keyboardType="phone-pad" maxLength={25} />
+      <Field label={t("donorProfile.4")} value={v.country} onChangeText={(t) => setEdit({ ...edit, country: t })} maxLength={60} />
+      <Body bold>{t("donorProfile.10")}</Body>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {DONOR_CURRENCIES.map((c) => (
           <Chip key={c} label={c} on={v.preferredCurrency === c} onPress={() => setEdit({ ...edit, preferredCurrency: c })} />
@@ -71,8 +73,8 @@ function Form({ uid, email, saved, fallbackName, fallbackPhone }: { uid: string;
       </View>
       <Body muted>Email: {email}. Only committee staff can see your details, and never on a public page unless you choose it.</Body>
 
-      <Heading>Notifications</Heading>
-      <Body muted>These appear in the app. Email and SMS are not offered yet.</Body>
+      <Heading>{t("donorProfile.11")}</Heading>
+      <Body muted>{t("donorProfile.12")}</Body>
       <View style={{ gap: 8 }}>
         {DONOR_NOTIFICATION_KEYS.map((k) => (
           <Chip key={k} label={DONOR_NOTIFICATION_LABELS[k]} on={donorWants(v.notifications, k)} onPress={() => setEdit({ ...edit, notifications: { ...edit.notifications, [k]: !donorWants(v.notifications, k) } })} />
@@ -80,18 +82,19 @@ function Form({ uid, email, saved, fallbackName, fallbackPhone }: { uid: string;
       </View>
 
       {msg && <Banner error={msg.error}>{msg.text}</Banner>}
-      <Btn label={busy ? "Saving…" : "Save"} onPress={save} disabled={busy || !v.fullName.trim()} />
+      <Btn label={busy ? t("donorProfile.13") : t("donorProfile.14")} onPress={save} disabled={busy || !v.fullName.trim()} />
     </>
   );
 }
 
 export default function DonorProfile() {
+  const { t } = useLang();
   const { user, member } = useAuth();
   const saved = useDocument(user ? `donors/${user.uid}` : null);
   const m = member as (typeof member & { phone?: string }) | null;
   return (
-    <RequireAuth eyebrow="Give" title="Profile">
-      <Screen eyebrow="Give" title="Profile and notifications" intro="Used to pre-fill the donation form and to decide which updates you receive.">
+    <RequireAuth eyebrow={t("donorProfile.5")} title={t("donorProfile.6")}>
+      <Screen eyebrow={t("donorProfile.5")} title={t("donorProfile.7")} intro={t("donorProfile.8")}>
         {saved !== undefined && user && (
           <Form key={saved ? "saved" : "new"} uid={user.uid} email={user.email ?? ""} saved={saved} fallbackName={m?.fullName ?? ""} fallbackPhone={m?.phone ?? ""} />
         )}

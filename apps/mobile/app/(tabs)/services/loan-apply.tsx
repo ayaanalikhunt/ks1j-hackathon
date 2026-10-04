@@ -1,5 +1,6 @@
 import { router } from "expo-router";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { useLang } from "@/lib/i18n";
 import { useState } from "react";
 import { View } from "react-native";
 import {
@@ -27,6 +28,7 @@ const num = (s: string) => Math.max(0, Math.trunc(Number(s) || 0));
 const emptyRef = { name: "", phone: "", relation: "" };
 
 export default function LoanApply() {
+  const { t } = useLang();
   const { user, member } = useAuth();
   const [f, setF] = useState({
     studentName: "",
@@ -110,19 +112,19 @@ export default function LoanApply() {
   }
 
   return (
-    <RequireAuth eyebrow="Services" title="Education loan">
+    <RequireAuth eyebrow={t("loanApply.1")} title={t("loanApply.2")}>
       <Screen
-        eyebrow="Services"
-        title="Education loan"
-        intro="This is a loan, not a donation: you repay it. Interest-free. No late fees, ever. You agree a monthly amount with a trustee, and repayment starts six months after the course ends."
+        eyebrow={t("loanApply.1")}
+        title={t("loanApply.2")}
+        intro={t("loanApply.3")}
       >
-        <Heading>The student and the course</Heading>
-        <Field label="Student's full name" value={f.studentName} onChangeText={set("studentName")} autoCapitalize="words" />
-        <Field label="Course" value={f.course} onChangeText={set("course")} />
-        <Field label="School or college" value={f.institution} onChangeText={set("institution")} />
-        <Field label="Course ends on (DD/MM/YYYY)" value={f.courseEnd} onChangeText={set("courseEnd")} placeholder="01/10/2027" />
-        <Field label="Loan amount needed (₹)" value={f.principal} onChangeText={set("principal")} keyboardType="number-pad" />
-        <Field label="What will the money pay for?" value={f.purpose} onChangeText={set("purpose")} multiline />
+        <Heading>{t("loanApply.22")}</Heading>
+        <Field label={t("loanApply.4")} value={f.studentName} onChangeText={set("studentName")} autoCapitalize="words" />
+        <Field label={t("loanApply.5")} value={f.course} onChangeText={set("course")} />
+        <Field label={t("loanApply.6")} value={f.institution} onChangeText={set("institution")} />
+        <Field label={t("loanApply.7")} value={f.courseEnd} onChangeText={set("courseEnd")} placeholder="01/10/2027" />
+        <Field label={t("loanApply.8")} value={f.principal} onChangeText={set("principal")} keyboardType="number-pad" />
+        <Field label={t("loanApply.9")} value={f.purpose} onChangeText={set("purpose")} multiline />
         {principal > 0 && (
           <Banner>
             The smallest monthly amount is {formatRupees(minEmi(principal))} (the loan spread over 48 months).
@@ -130,56 +132,56 @@ export default function LoanApply() {
           </Banner>
         )}
 
-        <Heading>Guarantor</Heading>
-        <Field label="Guarantor's name" value={f.guarantorName} onChangeText={set("guarantorName")} autoCapitalize="words" />
-        <Field label="Guarantor's phone" value={f.guarantorPhone} onChangeText={set("guarantorPhone")} keyboardType="phone-pad" />
-        <Field label="Relation to you" value={f.guarantorRelation} onChangeText={set("guarantorRelation")} />
+        <Heading>{t("loanApply.23")}</Heading>
+        <Field label={t("loanApply.10")} value={f.guarantorName} onChangeText={set("guarantorName")} autoCapitalize="words" />
+        <Field label={t("loanApply.11")} value={f.guarantorPhone} onChangeText={set("guarantorPhone")} keyboardType="phone-pad" />
+        <Field label={t("loanApply.12")} value={f.guarantorRelation} onChangeText={set("guarantorRelation")} />
 
-        <Heading>Is the student an orphan?</Heading>
+        <Heading>{t("loanApply.24")}</Heading>
         <View style={{ flexDirection: "row", gap: 8 }}>
           <Chip label="No" on={!orphan} onPress={() => setOrphan(false)} />
-          <Chip label="Yes, one or both parents have passed away" on={orphan} onPress={() => setOrphan(true)} />
+          <Chip label={t("loanApply.13")} on={orphan} onPress={() => setOrphan(true)} />
         </View>
 
         {orphan && (
           <>
-            <Banner>For an orphan loan the committee does a fuller background check, including a visit to the home. These details make it faster.</Banner>
-            <Heading>Which parent has passed away?</Heading>
+            <Banner>{t("loanApply.25")}</Banner>
+            <Heading>{t("loanApply.26")}</Heading>
             <View style={{ gap: 8 }}>
               {PARENT_STATUS.map((s) => (
                 <Chip key={s} label={PARENT_STATUS_LABELS[s]} on={parentStatus === s} onPress={() => setParentStatus(s)} />
               ))}
             </View>
 
-            <Heading>The guardian looking after the student</Heading>
-            <Field label="Guardian's full name" value={f.guardianName} onChangeText={set("guardianName")} autoCapitalize="words" />
-            <Field label="Relation to the student" value={f.guardianRelation} onChangeText={set("guardianRelation")} />
-            <Field label="Guardian's phone" value={f.guardianPhone} onChangeText={set("guardianPhone")} keyboardType="phone-pad" />
-            <Field label="Guardian's home address" value={f.guardianAddress} onChangeText={set("guardianAddress")} multiline />
-            <Field label="What does the guardian do for work?" value={f.guardianOccupation} onChangeText={set("guardianOccupation")} />
-            <Field label="Household income each month (₹)" value={f.guardianIncome} onChangeText={set("guardianIncome")} keyboardType="number-pad" />
+            <Heading>{t("loanApply.27")}</Heading>
+            <Field label={t("loanApply.14")} value={f.guardianName} onChangeText={set("guardianName")} autoCapitalize="words" />
+            <Field label={t("loanApply.15")} value={f.guardianRelation} onChangeText={set("guardianRelation")} />
+            <Field label={t("loanApply.16")} value={f.guardianPhone} onChangeText={set("guardianPhone")} keyboardType="phone-pad" />
+            <Field label={t("loanApply.17")} value={f.guardianAddress} onChangeText={set("guardianAddress")} multiline />
+            <Field label={t("loanApply.18")} value={f.guardianOccupation} onChangeText={set("guardianOccupation")} />
+            <Field label={t("loanApply.19")} value={f.guardianIncome} onChangeText={set("guardianIncome")} keyboardType="number-pad" />
 
-            <Heading>Two people who know the family</Heading>
-            <Body muted>A teacher, an imam or a neighbour. The committee will call them.</Body>
+            <Heading>{t("loanApply.28")}</Heading>
+            <Body muted>{t("loanApply.29")}</Body>
             {refs.map((r, i) => (
               <View key={i} style={{ gap: 8 }}>
                 <Field label={`Reference ${i + 1}: name`} value={r.name} onChangeText={setRef(i, "name")} autoCapitalize="words" />
-                <Field label="Phone" value={r.phone} onChangeText={setRef(i, "phone")} keyboardType="phone-pad" />
-                <Field label="How they know the family" value={r.relation} onChangeText={setRef(i, "relation")} />
+                <Field label={t("loanApply.20")} value={r.phone} onChangeText={setRef(i, "phone")} keyboardType="phone-pad" />
+                <Field label={t("loanApply.21")} value={r.relation} onChangeText={setRef(i, "relation")} />
               </View>
             ))}
           </>
         )}
 
-        <Heading>Proof</Heading>
-        <Body muted>Clear photos, taken in good light.</Body>
+        <Heading>{t("loanApply.30")}</Heading>
+        <Body muted>{t("loanApply.31")}</Body>
         {needed.map((k) => (
           <ProofSlot key={k} label={LOAN_DOC_LABELS[k]} required value={docs[k] ?? null} onChange={(p) => setDocs((d) => ({ ...d, [k]: p }))} />
         ))}
 
         {err && <Banner error>{err}</Banner>}
-        {!ready && <Banner>Please fill in every section and attach each document listed above.</Banner>}
-        <Btn label={busy ? "Applying…" : "Apply for the loan"} onPress={submit} disabled={!ready || busy} />
+        {!ready && <Banner>{t("loanApply.32")}</Banner>}
+        <Btn label={busy ? t("loanApply.33") : t("loanApply.34")} onPress={submit} disabled={!ready || busy} />
       </Screen>
     </RequireAuth>
   );

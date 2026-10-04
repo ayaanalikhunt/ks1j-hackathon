@@ -1,5 +1,6 @@
 import { router } from "expo-router";
 import { addDoc, collection, doc, runTransaction, serverTimestamp, updateDoc } from "firebase/firestore";
+import { useLang } from "@/lib/i18n";
 import { useState } from "react";
 import { View } from "react-native";
 import {
@@ -33,6 +34,7 @@ const APPLY_TYPES = CASE_TYPES.filter((t) => t !== "education_loan");
 const categoryOf = (t: CaseType) => (t === "scholarship" ? "scholarship" : "welfare");
 
 export default function Apply() {
+  const { t } = useLang();
   const { user, member } = useAuth();
   const [type, setType] = useState<CaseType>("medical");
   const [sadaat, setSadaat] = useState(false);
@@ -130,50 +132,50 @@ export default function Apply() {
   }
 
   return (
-    <RequireAuth eyebrow="Services" title="Apply for help">
+    <RequireAuth eyebrow={t("apply.1")} title={t("apply.2")}>
       <Screen
-        eyebrow="Services"
-        title="Apply for help"
-        intro="Only the Jamaat committee assigned to your case sees these details. Donors never see your name."
+        eyebrow={t("apply.1")}
+        title={t("apply.2")}
+        intro={t("apply.3")}
       >
-        <Heading>What do you need help with?</Heading>
+        <Heading>{t("apply.20")}</Heading>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
           {APPLY_TYPES.map((t) => (
             <Chip key={t} label={CASE_TYPE_LABELS[t]} on={type === t} onPress={() => setType(t)} />
           ))}
         </View>
 
-        <Heading>Category</Heading>
+        <Heading>{t("apply.21")}</Heading>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-          <Chip label="Sadaat (Syed)" on={sadaat} onPress={() => setSadaat(true)} />
-          <Chip label="Non-Sadaat" on={!sadaat} onPress={() => setSadaat(false)} />
+          <Chip label={t("apply.4")} on={sadaat} onPress={() => setSadaat(true)} />
+          <Chip label={t("apply.5")} on={!sadaat} onPress={() => setSadaat(false)} />
         </View>
-        {sadaat && <Body muted>The committee checks your Aadhaar card before confirming this.</Body>}
+        {sadaat && <Body muted>{t("apply.22")}</Body>}
 
-        <Heading>The need</Heading>
+        <Heading>{t("apply.23")}</Heading>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-          <Chip label="This is an emergency" on={urgent} onPress={() => setUrgent(!urgent)} />
+          <Chip label={t("apply.6")} on={urgent} onPress={() => setUrgent(!urgent)} />
         </View>
-        {urgent && <Body muted>Urgent requests are reviewed first. The committee still checks every case before any money moves.</Body>}
-        <Field label="Short title" value={f.title} onChangeText={set("title")} placeholder="For example: Class 10 fees" />
-        <Field label="Amount needed (₹)" value={f.amount} onChangeText={set("amount")} keyboardType="number-pad" />
-        <Field label="Tell us about the need" value={f.requirement} onChangeText={set("requirement")} multiline />
+        {urgent && <Body muted>{t("apply.24")}</Body>}
+        <Field label={t("apply.7")} value={f.title} onChangeText={set("title")} placeholder={t("apply.8")} />
+        <Field label={t("apply.9")} value={f.amount} onChangeText={set("amount")} keyboardType="number-pad" />
+        <Field label={t("apply.10")} value={f.requirement} onChangeText={set("requirement")} multiline />
 
-        <Heading>About you</Heading>
-        <Field label="Full name" value={f.name} onChangeText={set("name")} autoCapitalize="words" />
-        <Field label="Phone number" value={f.phone} onChangeText={set("phone")} keyboardType="phone-pad" />
-        <Field label="Home address" value={f.address} onChangeText={set("address")} multiline />
-        <Field label="City" value={f.city} onChangeText={set("city")} />
+        <Heading>{t("apply.25")}</Heading>
+        <Field label={t("apply.11")} value={f.name} onChangeText={set("name")} autoCapitalize="words" />
+        <Field label={t("apply.12")} value={f.phone} onChangeText={set("phone")} keyboardType="phone-pad" />
+        <Field label={t("apply.13")} value={f.address} onChangeText={set("address")} multiline />
+        <Field label={t("apply.14")} value={f.city} onChangeText={set("city")} />
 
-        <Heading>Your family</Heading>
-        <Field label="People in the household" value={f.familyMembers} onChangeText={set("familyMembers")} keyboardType="number-pad" />
-        <Field label="People who earn" value={f.earningMembers} onChangeText={set("earningMembers")} keyboardType="number-pad" />
-        <Field label="Total monthly household income (₹)" value={f.monthlyIncome} onChangeText={set("monthlyIncome")} keyboardType="number-pad" />
-        <Field label="Family background and how things got here" value={f.familyHistory} onChangeText={set("familyHistory")} multiline />
+        <Heading>{t("apply.26")}</Heading>
+        <Field label={t("apply.15")} value={f.familyMembers} onChangeText={set("familyMembers")} keyboardType="number-pad" />
+        <Field label={t("apply.16")} value={f.earningMembers} onChangeText={set("earningMembers")} keyboardType="number-pad" />
+        <Field label={t("apply.17")} value={f.monthlyIncome} onChangeText={set("monthlyIncome")} keyboardType="number-pad" />
+        <Field label={t("apply.18")} value={f.familyHistory} onChangeText={set("familyHistory")} multiline />
 
-        <Heading>Proof</Heading>
+        <Heading>{t("apply.27")}</Heading>
         <Body muted>Clear photos, taken in good light. These are what the committee needs for a {CASE_TYPE_LABELS[type].toLowerCase()} request.</Body>
-        <Heading>ID proof</Heading>
+        <Heading>{t("apply.28")}</Heading>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
           {ID_PROOF_TYPES.map((t) => (
             <Chip key={t} label={ID_PROOF_LABELS[t]} on={idType === t} onPress={() => setIdType(t)} />
@@ -181,7 +183,7 @@ export default function Apply() {
         </View>
         {idType === "none" && (
           <>
-            <Body muted>That is fine. You will not be turned away: the committee will verify your situation another way. Why is there no ID? (You do not need to explain more than this.)</Body>
+            <Body muted>{t("apply.29")}</Body>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
               {NO_ID_REASONS.map((r) => (
                 <Chip key={r} label={NO_ID_REASON_LABELS[r]} on={noReason === r} onPress={() => setNoReason(r)} />
@@ -190,15 +192,15 @@ export default function Apply() {
           </>
         )}
         {idType === "aadhaar" && (
-          <Field label="Last 4 digits of your Aadhaar (optional)" value={f.idLast4} onChangeText={set("idLast4")} keyboardType="number-pad" maxLength={4} />
+          <Field label={t("apply.19")} value={f.idLast4} onChangeText={set("idLast4")} keyboardType="number-pad" maxLength={4} />
         )}
         {needed.map((k) => (
           <ProofSlot key={k} label={DOC_LABELS[k]} required value={docs[k] ?? null} onChange={(p) => setDocs((d) => ({ ...d, [k]: p }))} />
         ))}
 
         {err && <Banner error>{err}</Banner>}
-        {!ready && <Banner>Please fill in every section and attach each document listed above.</Banner>}
-        <Btn label={busy ? "Submitting…" : "Submit application"} onPress={submit} disabled={!ready || busy} />
+        {!ready && <Banner>{t("apply.30")}</Banner>}
+        <Btn label={busy ? t("apply.31") : t("apply.32")} onPress={submit} disabled={!ready || busy} />
       </Screen>
     </RequireAuth>
   );

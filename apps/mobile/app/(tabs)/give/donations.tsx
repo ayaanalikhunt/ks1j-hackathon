@@ -1,5 +1,6 @@
 import { Link, router } from "expo-router";
 import { where } from "firebase/firestore";
+import { useLang } from "@/lib/i18n";
 import { Pressable } from "react-native";
 import { PURPOSE_LABELS, donationStage, formatDate, formatRupees } from "@ks1j/shared";
 import { RequireAuth } from "@/components/RequireAuth";
@@ -8,6 +9,7 @@ import { useAuth } from "@/lib/auth";
 import { useCollection } from "@/lib/firestore";
 
 export default function MyDonations() {
+  const { t } = useLang();
   const { user } = useAuth();
   const uid = user?.uid ?? "";
   const gifts = useCollection(user ? "donations" : null, [where("payerId", "==", uid)], [uid]);
@@ -16,23 +18,23 @@ export default function MyDonations() {
   const updates = [...notes.rows].sort((a, b) => (b.at?.seconds ?? 9e9) - (a.at?.seconds ?? 9e9)).slice(0, 5);
 
   return (
-    <RequireAuth eyebrow="Give" title="My donations">
-      <Screen eyebrow="Give" title="My donations" intro="Every figure comes from the committee's verified records.">
+    <RequireAuth eyebrow={t("donations.1")} title={t("donations.2")}>
+      <Screen eyebrow={t("donations.1")} title={t("donations.2")} intro={t("donations.3")}>
         {gifts.error && <Banner error>{gifts.error}</Banner>}
-        {!gifts.loading && mine.length === 0 && <Banner>You have not made a donation yet.</Banner>}
+        {!gifts.loading && mine.length === 0 && <Banner>{t("donations.6")}</Banner>}
         {mine.map((d) => (
           <Link key={d.id} href={{ pathname: "/give/donation", params: { id: d.id } }} asChild>
             <Pressable>
               <Card>
-                <Body muted>{d.publicReference ?? "Donation"}</Body>
+                <Body muted>{d.publicReference ?? t("donation.2")}</Body>
                 <Heading>{formatRupees(d.amount)}</Heading>
                 <Body>
-                  {PURPOSE_LABELS[d.purpose] ?? "Donation"}
+                  {PURPOSE_LABELS[d.purpose] ?? t("donation.2")}
                   {d.createdAt ? ` · ${formatDate(d.createdAt.toDate())}` : ""}
                 </Body>
                 <Body bold>{donationStage(d as unknown as Parameters<typeof donationStage>[0])}</Body>
                 <Body muted>
-                  Allocated {formatRupees(d.allocatedAmount ?? 0)} · Paid out {formatRupees(d.disbursedAmount ?? 0)}
+                  {t("dn.listLine", { a: formatRupees(d.allocatedAmount ?? 0), p: formatRupees(d.disbursedAmount ?? 0) })}
                 </Body>
               </Card>
             </Pressable>
@@ -40,7 +42,7 @@ export default function MyDonations() {
         ))}
         {updates.length > 0 && (
           <>
-            <Heading>Updates</Heading>
+            <Heading>{t("donations.7")}</Heading>
             {updates.map((n) => (
               <Card key={n.id}>
                 <Body>{n.text}</Body>
@@ -49,8 +51,8 @@ export default function MyDonations() {
             ))}
           </>
         )}
-        <Btn label="Donate again" onPress={() => router.push("/give/donate")} />
-        <Btn quiet label="Profile and notifications" onPress={() => router.push("/give/donor-profile")} />
+        <Btn label={t("donations.4")} onPress={() => router.push("/give/donate")} />
+        <Btn quiet label={t("donations.5")} onPress={() => router.push("/give/donor-profile")} />
       </Screen>
     </RequireAuth>
   );

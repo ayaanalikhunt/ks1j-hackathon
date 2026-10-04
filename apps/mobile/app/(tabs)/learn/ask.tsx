@@ -1,5 +1,6 @@
 import { router, useLocalSearchParams, usePathname } from "expo-router";
 import { useRef, useState } from "react";
+import { useLang } from "@/lib/i18n";
 import { Image, Linking, Pressable, Text, View } from "react-native";
 import { ASK_MARJAS, COMMAND_SUGGESTIONS, GUIDE_SUGGESTIONS, GUIDE_TOPICS, MARJA_CONFIRMATION, getAskMarja, type AskMarja, type MarjaId } from "@ks1j/shared";
 import { RichText } from "@/components/RichText";
@@ -41,19 +42,21 @@ function Avatar({ id, size = 36 }: { id: MarjaId; size?: number }) {
 }
 
 function Guardrail({ marja }: { marja?: AskMarja }) {
+  const { t: tr } = useLang();
   return (
     <Banner>
       Guidance guardrail: the AI Guide explains published positions in plain words. It does not issue fatwas, and it will say plainly when it is unsure. {MARJA_CONFIRMATION}{" "}
-      {marja ? `Verify on ${marja.websiteLabel}.` : `Official answers: ${ASK_MARJAS.map((m) => m.websiteLabel).join(", ")}.`}
+      {marja ? tr("dn.verifyOn", { site: marja.websiteLabel }) : tr("dn.officialAnswers", { sites: ASK_MARJAS.map((m) => m.websiteLabel).join(", ") })}
     </Banner>
   );
 }
 
 function Picker({ onPick, onCompare }: { onPick: (m: AskMarja) => void; onCompare: () => void }) {
+  const { t: tr } = useLang();
   const t = useTheme();
   return (
     <>
-      <Heading>Choose your Marja&apos;</Heading>
+      <Heading>{tr("askUi.12")}</Heading>
       {ASK_MARJAS.map((m) => (
         <Card key={m.id}>
           <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
@@ -69,14 +72,14 @@ function Picker({ onPick, onCompare }: { onPick: (m: AskMarja) => void; onCompar
               <Text key={k} style={{ fontSize: 13, fontFamily: F.semi, color: t.text, backgroundColor: t.tintSoft, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, overflow: "hidden" }}>{k}</Text>
             ))}
           </View>
-          <Btn label={`Ask ${m.name.replace("Ayatollah ", "")}`} onPress={() => onPick(m)} />
-          <Btn quiet label={`Official site: ${m.websiteLabel}`} onPress={() => Linking.openURL(m.website)} />
+          <Btn label={tr("dn.askWho", { name: m.name.replace("Ayatollah ", "") })} onPress={() => onPick(m)} />
+          <Btn quiet label={tr("dn.officialSite", { site: m.websiteLabel })} onPress={() => Linking.openURL(m.website)} />
         </Card>
       ))}
       <Card>
-        <Body bold>Not sure whose answer to follow?</Body>
-        <Body muted>Ask all three at once and see each Marja&apos;s position side by side.</Body>
-        <Btn label="★ Compare all three" onPress={onCompare} />
+        <Body bold>{tr("askUi.13")}</Body>
+        <Body muted>{tr("askUi.14")}</Body>
+        <Btn label={tr("askUi.1")} onPress={onCompare} />
       </Card>
       <Guardrail />
     </>
@@ -84,6 +87,7 @@ function Picker({ onPick, onCompare }: { onPick: (m: AskMarja) => void; onCompar
 }
 
 function Chat({ marja, onBack, onCompare, goTo }: { marja: AskMarja; onBack: () => void; onCompare: () => void; goTo: (routeId: string, path: string | undefined, openingText: string, title: string | undefined, openedText: string | undefined) => Promise<Turn[]> }) {
+  const { t: tr } = useLang();
   const t = useTheme();
   const [q, setQ] = useState("");
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -112,7 +116,7 @@ function Chat({ marja, onBack, onCompare, goTo }: { marja: AskMarja; onBack: () 
       } else if (r.answer) {
         setTurns((p) => [...p, { role: "guide", text: r.answer! }]);
       } else {
-        setError("The guide could not answer just now.");
+        setError(tr("dn.noAnswer"));
       }
     } catch (e) {
       setError(clean(e));
@@ -127,22 +131,22 @@ function Chat({ marja, onBack, onCompare, goTo }: { marja: AskMarja; onBack: () 
         <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
           <Avatar id={marja.id} size={56} />
           <View style={{ flex: 1 }}>
-            <Body muted>GUIDED BY</Body>
+            <Body muted>{tr("askUi.15")}</Body>
             <Body bold>{marja.honorific}</Body>
           </View>
         </View>
         <Body muted>{marja.role}. Answers explain his published rulings and method.</Body>
-        <Btn quiet label="← Change Marja'" onPress={onBack} />
-        {turns.length === 0 && <Btn quiet label="★ Compare all three" onPress={onCompare} />}
+        <Btn quiet label={tr("askUi.2")} onPress={onBack} />
+        {turns.length === 0 && <Btn quiet label={tr("askUi.1")} onPress={onCompare} />}
       </Card>
 
       {turns.length === 0 && (
         <Card>
-          <Body muted>Ask about Khums, prayer, fasting, halal income, music, taqlid, or anything from daily life.</Body>
+          <Body muted>{tr("askUi.16")}</Body>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
             {GUIDE_SUGGESTIONS.slice(0, 4).map((s) => <Chip key={s} label={s} onPress={() => void send(s)} />)}
           </View>
-          <Body muted>The guide also understands commands in your own words:</Body>
+          <Body muted>{tr("askUi.17")}</Body>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
             {COMMAND_SUGGESTIONS.map((s) => <Chip key={s} label={s} on onPress={() => void send(s)} />)}
           </View>
@@ -176,7 +180,7 @@ function Chat({ marja, onBack, onCompare, goTo }: { marja: AskMarja; onBack: () 
               onPress={() => {
                 setClarify(null);
                 if (o.action.routeId) {
-                  void goTo(o.action.routeId, o.path ?? undefined, "Opening…", o.label, "Opened.").then((after) => setTurns((p) => [...p, ...after]));
+                  void goTo(o.action.routeId, o.path ?? undefined, tr("dn.opening"), o.label, tr("dn.opened")).then((after) => setTurns((p) => [...p, ...after]));
                 }
               }}
               style={{ borderWidth: 1, borderColor: t.border, backgroundColor: t.tintSoft, borderRadius: 999, paddingVertical: 12, paddingHorizontal: 16 }}
@@ -187,9 +191,9 @@ function Chat({ marja, onBack, onCompare, goTo }: { marja: AskMarja; onBack: () 
         </View>
       )}
 
-      <Field label="Your question" value={q} onChangeText={setQ} maxLength={600} placeholder="English, ગુજરાતી, हिन्दी, اردو or Roman Urdu…" returnKeyType="send" onSubmitEditing={() => void send(q)} />
-      <Btn label={busy ? "Thinking…" : "Send"} onPress={() => void send(q)} disabled={busy || !q.trim()} />
-      {turns.length > 1 && <Btn quiet label="Start a fresh conversation" onPress={() => { setTurns([]); setError(null); setClarify(null); }} />}
+      <Field label={tr("askUi.3")} value={q} onChangeText={setQ} maxLength={600} placeholder={tr("askUi.4")} returnKeyType="send" onSubmitEditing={() => void send(q)} />
+      <Btn label={busy ? tr("askUi.22") : tr("askUi.23")} onPress={() => void send(q)} disabled={busy || !q.trim()} />
+      {turns.length > 1 && <Btn quiet label={tr("askUi.5")} onPress={() => { setTurns([]); setError(null); setClarify(null); }} />}
       {error && <Banner error>{error}</Banner>}
       <Guardrail marja={marja} />
     </>
@@ -197,6 +201,7 @@ function Chat({ marja, onBack, onCompare, goTo }: { marja: AskMarja; onBack: () 
 }
 
 function Compare({ onBack }: { onBack: () => void }) {
+  const { t: tr } = useLang();
   const [q, setQ] = useState("");
   const [answers, setAnswers] = useState<Partial<Record<MarjaId, string>>>({});
   const [busy, setBusy] = useState(false);
@@ -225,13 +230,13 @@ function Compare({ onBack }: { onBack: () => void }) {
   return (
     <>
       <Card>
-        <Body muted>ALL THREE, SIDE BY SIDE</Body>
-        <Heading>One question, three answers</Heading>
-        <Body muted>Each guide answers from his own Marja&apos;s published position. Where they differ, you will see it plainly.</Body>
-        <Btn quiet label="← Back" onPress={onBack} />
+        <Body muted>{tr("askUi.18")}</Body>
+        <Heading>{tr("askUi.19")}</Heading>
+        <Body muted>{tr("askUi.20")}</Body>
+        <Btn quiet label={tr("askUi.6")} onPress={onBack} />
       </Card>
-      <Field label="Your question for all three" value={q} onChangeText={setQ} maxLength={600} placeholder="e.g. Is listening to music permissible?" returnKeyType="send" onSubmitEditing={() => void all(q)} />
-      <Btn label={busy ? "Asking…" : "Ask all three"} onPress={() => void all(q)} disabled={busy || !q.trim()} />
+      <Field label={tr("askUi.7")} value={q} onChangeText={setQ} maxLength={600} placeholder={tr("askUi.8")} returnKeyType="send" onSubmitEditing={() => void all(q)} />
+      <Btn label={busy ? tr("askUi.21") : tr("askUi.24")} onPress={() => void all(q)} disabled={busy || !q.trim()} />
       {!asked && (
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
           {GUIDE_SUGGESTIONS.slice(0, 4).map((s) => <Chip key={s} label={s} onPress={() => void all(s)} />)}
@@ -247,7 +252,7 @@ function Compare({ onBack }: { onBack: () => void }) {
               <Body muted>{m.city}</Body>
             </View>
           </View>
-          {busy ? <Body muted>Asking…</Body> : answers[m.id] ? <RichText text={answers[m.id] as string} /> : asked ? <Body muted>This guide could not answer just now. Please ask again or check {m.websiteLabel}.</Body> : <Body muted>Ask a question above to see {m.name}&apos;s position here.</Body>}
+          {busy ? <Body muted>{tr("askUi.21")}</Body> : answers[m.id] ? <RichText text={answers[m.id] as string} /> : asked ? <Body muted>This guide could not answer just now. Please ask again or check {m.websiteLabel}.</Body> : <Body muted>Ask a question above to see {m.name}&apos;s position here.</Body>}
           <Btn quiet label={`Verify on ${m.websiteLabel}`} onPress={() => Linking.openURL(m.website)} />
         </Card>
       ))}
@@ -257,6 +262,7 @@ function Compare({ onBack }: { onBack: () => void }) {
 }
 
 export default function Ask() {
+  const { t: tr } = useLang();
   const params = useLocalSearchParams<{ marja?: string; mode?: string }>();
   const pathname = usePathname();
   const pathRef = useRef(pathname);
@@ -298,7 +304,7 @@ export default function Ask() {
   }
 
   return (
-    <Screen eyebrow="Learn" title="Ask AI Guide" intro="Everyday rulings, explained in plain words. Ask in Gujarati, Hindi, Urdu, Roman Urdu, Arabic, Persian or English, or say what you need, such as “દાન ખોલો” or “donation kholo”.">
+    <Screen eyebrow={tr("askUi.9")} title={tr("askUi.10")} intro={tr("askUi.11")}>
       {!marja && !compare && (
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
           {GUIDE_TOPICS.map((tp) => <Chip key={tp} label={tp} onPress={() => {}} />)}

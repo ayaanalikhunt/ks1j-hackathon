@@ -1,5 +1,6 @@
 import { router } from "expo-router";
 import { deleteDoc, doc, serverTimestamp, setDoc } from "firebase/firestore";
+import { useLang } from "@/lib/i18n";
 import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { splitList } from "@ks1j/shared";
@@ -10,6 +11,7 @@ import { useAuth } from "@/lib/auth";
 import { db } from "@/lib/firebase";
 
 function Editor() {
+  const { t } = useLang();
   const { user, member } = useAuth();
   const existing = useMyProfile();
   const [f, setF] = useState({ headline: "", profession: "", industry: "", city: "", skills: "", bio: "", mentorAreas: "", mentorNote: "" });
@@ -63,34 +65,35 @@ function Editor() {
   const leave = () => deleteDoc(doc(db, "communityProfiles", user!.uid)).then(() => router.replace("/learn"));
 
   return (
-    <Screen eyebrow="Community" title="My profile" intro="This is what other members see. Your phone number is never shown.">
-      <Field label="Headline" value={f.headline} onChangeText={set("headline")} />
-      <Field label="Profession" value={f.profession} onChangeText={set("profession")} />
-      <Field label="Industry" value={f.industry} onChangeText={set("industry")} />
-      <Field label="City" value={f.city} onChangeText={set("city")} />
-      <Field label="Skills (comma separated)" value={f.skills} onChangeText={set("skills")} />
-      <Field label="About you" value={f.bio} onChangeText={set("bio")} multiline />
+    <Screen eyebrow={t("commProfile.1")} title={t("commProfile.2")} intro={t("commProfile.3")}>
+      <Field label={t("commProfile.4")} value={f.headline} onChangeText={set("headline")} />
+      <Field label={t("commProfile.5")} value={f.profession} onChangeText={set("profession")} />
+      <Field label={t("commProfile.6")} value={f.industry} onChangeText={set("industry")} />
+      <Field label={t("commProfile.7")} value={f.city} onChangeText={set("city")} />
+      <Field label={t("commProfile.8")} value={f.skills} onChangeText={set("skills")} />
+      <Field label={t("commProfile.9")} value={f.bio} onChangeText={set("bio")} multiline />
       <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
-        <Chip label="Listed in directory" on={listed} onPress={() => setListed(!listed)} />
-        <Chip label="Open to work" on={openToWork} onPress={() => setOpenToWork(!openToWork)} />
-        <Chip label="I can mentor" on={isMentor} onPress={() => setIsMentor(!isMentor)} />
+        <Chip label={t("commProfile.10")} on={listed} onPress={() => setListed(!listed)} />
+        <Chip label={t("commProfile.11")} on={openToWork} onPress={() => setOpenToWork(!openToWork)} />
+        <Chip label={t("commProfile.12")} on={isMentor} onPress={() => setIsMentor(!isMentor)} />
       </View>
       {isMentor && (
         <>
-          <Field label="Mentor areas (comma separated)" value={f.mentorAreas} onChangeText={set("mentorAreas")} />
-          <Field label="Availability note" value={f.mentorNote} onChangeText={set("mentorNote")} />
+          <Field label={t("commProfile.13")} value={f.mentorAreas} onChangeText={set("mentorAreas")} />
+          <Field label={t("commProfile.14")} value={f.mentorNote} onChangeText={set("mentorNote")} />
         </>
       )}
       {msg && <Banner>{msg}</Banner>}
-      <Btn label="Save profile" onPress={save} />
-      {existing && <Btn quiet label="Leave the community" onPress={leave} />}
+      <Btn label={t("commProfile.15")} onPress={save} />
+      {existing && <Btn quiet label={t("commProfile.16")} onPress={leave} />}
     </Screen>
   );
 }
 
 export default function Profile() {
+  const { t } = useLang();
   return (
-    <RequireAuth eyebrow="Community" title="My profile">
+    <RequireAuth eyebrow={t("commProfile.1")} title={t("commProfile.2")}>
       <Editor />
     </RequireAuth>
   );

@@ -1,5 +1,6 @@
 import { addDoc, collection, serverTimestamp, where } from "firebase/firestore";
 import { useState } from "react";
+import { useLang } from "@/lib/i18n";
 import { Image, View } from "react-native";
 import {
   CASE_STATUS_LABELS,
@@ -81,15 +82,16 @@ function CaseDocs({ id, c }: { id: string; c: any }) {
 }
 
 export default function Mine() {
+  const { t } = useLang();
   const { user } = useAuth();
   const uid = user?.uid ?? "";
   const { rows, loading, error } = useCollection(user ? "cases" : null, [where("applicantId", "==", uid)], [uid]);
   const cases = [...rows].sort((a, b) => (b.number ?? 0) - (a.number ?? 0));
   return (
-    <RequireAuth eyebrow="Services" title="My applications">
-      <Screen eyebrow="Services" title="My applications" intro="You will see each step as the committee works on your case.">
+    <RequireAuth eyebrow={t("mine.1")} title={t("mine.2")}>
+      <Screen eyebrow={t("mine.1")} title={t("mine.2")} intro={t("mine.3")}>
         {error && <Banner error>{error}</Banner>}
-        {!loading && cases.length === 0 && <Banner>You have not applied for anything yet.</Banner>}
+        {!loading && cases.length === 0 && <Banner>{t("mine.4")}</Banner>}
         {cases.map((c) => (
           <Card key={c.id}>
             <Body bold>
