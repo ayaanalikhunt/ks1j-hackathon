@@ -5,6 +5,19 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function validDonor(d) {
+      return d.keys().hasOnly(['donorId', 'fullName', 'displayName', 'email', 'phone', 'country', 'preferredCurrency', 'notifications', 'createdAt', 'updatedAt'])
+        && d.donorId == request.auth.uid
+        && d.updatedAt == request.time
+        && d.get('fullName', '') is string && d.get('fullName', '').size() <= 80
+        && d.get('displayName', '') is string && d.get('displayName', '').size() <= 60
+        && d.get('email', '') is string && d.get('email', '').size() <= 120
+        && d.get('phone', '') is string && d.get('phone', '').size() <= 25
+        && d.get('country', '') is string && d.get('country', '').size() <= 60
+        && d.get('preferredCurrency', 'INR') in ['INR', 'USD', 'EUR', 'GBP', 'AED', 'SAR', 'CAD', 'AUD', 'SGD', 'QAR', 'KWD']
+        && d.get('notifications', {}).keys().hasOnly(['received', 'allocated', 'disbursed', 'refunded'])
+        && d.get('notifications', {}).values().hasOnly([true, false]);
+    }
     function signedIn() { return request.auth != null; }
     function me() { return get(/databases/$(database)/documents/members/$(request.auth.uid)).data; }
     function role() { return signedIn() ? me().role : 'none'; }
@@ -428,6 +441,14 @@ service cloud.firestore {
         allow read: if isStaff();
         allow write: if false;
       }
+    }
+    // A donor's own profile and notification choices. Only they edit it; committee staff can read it.
+    match /donors/{uid} {
+      allow read: if signedIn() && (uid == request.auth.uid || isStaff());
+      allow create: if signedIn() && uid == request.auth.uid && validDonor(request.resource.data) && request.resource.data.createdAt == request.time;
+      allow update: if signedIn() && uid == request.auth.uid && validDonor(request.resource.data)
+        && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if false;
     }
     match /notifications/{id} {
       allow read: if signedIn() && resource.data.userId == request.auth.uid;

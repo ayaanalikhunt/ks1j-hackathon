@@ -3,7 +3,8 @@
 const { FieldValue, getFirestore } = require("firebase-admin/firestore");
 const { HttpsError, onCall } = require("firebase-functions/v2/https");
 const { canAllocate, caseRefOf, reconcileDonation, PURPOSES } = require("./lib/allocation");
-const { audit, caseEvent, notify } = require("./lib/settle");
+const { audit, caseEvent } = require("./lib/settle");
+const { flush, queue } = require("./lib/notify");
 const { refreshTransparency } = require("./lib/transparency");
 
 const db = getFirestore();
@@ -43,7 +44,9 @@ exports.allocateDonation = onCall(REGION, async (req) => {
   }
   if (new Set(allocations.map((a) => a.caseId)).size !== allocations.length) throw new HttpsError("invalid-argument", "List each case once.");
 
+  const notes = [];
   await db.runTransaction(async (tx) => {
+    notes.length = 0;
     const ref = db.doc(`donations/${donationId}`);
     const dSnap = await tx.get(ref);
     if (!dSnap.exists || dSnap.get("status") !== "paid") throw fail("Only a verified (paid) donation can be allocated.");
@@ -81,7 +84,7 @@ exports.allocateDonation = onCall(REGION, async (req) => {
       } else if (cards[i].exists) {
         tx.update(cards[i].ref, { amountRaised: FieldValue.increment(a.amount) });
       }
-      notify(db, tx, d.payerId ?? d.donorId, `Your donation was allocated to Case ${caseRefOf(cd) ?? a.caseId}.`, `/donations/detail?id=${donationId}`);
+      queue(notes, d.payerId ?? d.donorId, "allocated", `Your donation was allocated to Case ${caseRefOf(cd) ?? a.caseId}.`, `/donations/detail?id=${donationId}`);
     });
 
     const now = (d.allocatedAmount ?? 0) + total;
@@ -92,6 +95,7 @@ exports.allocateDonation = onCall(REGION, async (req) => {
     });
     audit(db, tx, { action: "ALLOCATION_CREATED", actor: uid, entityType: "donation", entityId: donationId, oldValue: { allocated: d.allocatedAmount ?? 0 }, newValue: { allocated: now, allocations: allocations.map((a) => ({ caseId: a.caseId, amount: a.amount })) } });
   });
+  await flush(db, notes);
   await refreshTransparency(db);
   return { ok: true };
 });
@@ -131,8 +135,10 @@ exports.createDisbursement = onCall(REGION, async (req) => {
   const threshold = await checkerThreshold();
   const needsChecker = amount >= threshold;
   let id = "";
+  const notes = [];
 
   await db.runTransaction(async (tx) => {
+    notes.length = 0;
     const aRef = db.doc(`allocations/${allocationId}`);
     const a = await tx.get(aRef);
     if (!a.exists || a.get("status") !== "allocated") throw fail("That allocation is not active.");
@@ -153,10 +159,11 @@ exports.createDisbursement = onCall(REGION, async (req) => {
     tx.update(aRef, { reservedAmount: FieldValue.increment(amount), ...(needsChecker ? {} : { disbursedAmount: FieldValue.increment(amount) }) });
     if (!needsChecker) {
       tx.update(dRef, { disbursedAmount: FieldValue.increment(amount), donationStatus: (d.get("disbursedAmount") ?? 0) + amount >= d.get("amount") ? "disbursed" : "partially_disbursed" });
-      notify(db, tx, a.get("donorId"), "Your allocated funds have been disbursed.", `/donations/detail?id=${a.get("donationId")}`);
+      queue(notes, a.get("donorId"), "disbursed", "Your allocated funds have been disbursed.", `/donations/detail?id=${a.get("donationId")}`);
     }
     audit(db, tx, { action: needsChecker ? "DISBURSEMENT_CREATED" : "DISBURSEMENT_COMPLETED", actor: uid, entityType: "disbursement", entityId: ref.id, newValue: { allocationId, amount, method } });
   });
+  await flush(db, notes);
   await refreshTransparency(db);
   return { ok: true, id, needsApproval: needsChecker };
 });
@@ -167,7 +174,9 @@ exports.decideDisbursement = onCall(REGION, async (req) => {
   const { id, approve, reason } = req.data ?? {};
   if (typeof id !== "string" || typeof approve !== "boolean") throw new HttpsError("invalid-argument", "A disbursement and a decision are required.");
   if (!approve && !(typeof reason === "string" && reason.trim().length >= 5)) throw new HttpsError("invalid-argument", "Say why it is rejected.");
+  const notes = [];
   await db.runTransaction(async (tx) => {
+    notes.length = 0;
     const ref = db.doc(`disbursements/${id}`);
     const s = await tx.get(ref);
     if (!s.exists || s.get("status") !== "pending_approval") throw fail("That payout is not waiting for approval.");
@@ -180,13 +189,14 @@ exports.decideDisbursement = onCall(REGION, async (req) => {
       tx.update(ref, { status: "completed", approvedBy: uid, completedAt: FieldValue.serverTimestamp() });
       tx.update(aRef, { disbursedAmount: FieldValue.increment(amount) });
       tx.update(dRef, { disbursedAmount: FieldValue.increment(amount), donationStatus: (d.get("disbursedAmount") ?? 0) + amount >= d.get("amount") ? "disbursed" : "partially_disbursed" });
-      notify(db, tx, s.get("donorId"), "Your allocated funds have been disbursed.", `/donations/detail?id=${s.get("donationId")}`);
+      queue(notes, s.get("donorId"), "disbursed", "Your allocated funds have been disbursed.", `/donations/detail?id=${s.get("donationId")}`);
     } else {
       tx.update(ref, { status: "rejected", rejectedBy: uid, rejectionReason: reason });
       tx.update(aRef, { reservedAmount: FieldValue.increment(-amount) });
     }
     audit(db, tx, { action: approve ? "DISBURSEMENT_APPROVED" : "DISBURSEMENT_REJECTED", actor: uid, entityType: "disbursement", entityId: id, oldValue: { status: "pending_approval" }, newValue: { status: approve ? "completed" : "rejected" }, reason: reason ?? null });
   });
+  await flush(db, notes);
   await refreshTransparency(db);
   return { ok: true };
 });

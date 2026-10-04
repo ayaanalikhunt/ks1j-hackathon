@@ -5,7 +5,8 @@ const { HttpsError, onCall, onRequest } = require("firebase-functions/v2/https")
 const { defineSecret, defineString } = require("firebase-functions/params");
 const { computeQuote, fetchRateToInr, methodsFor, SUPPORTED } = require("./lib/fx");
 const { paymentMatches, publicReference, verifyPaymentSignature, verifyWebhookSignature } = require("./lib/razorpay-core");
-const { audit, settleDonation, caseEvent, notify } = require("./lib/settle");
+const { audit, settleDonation, caseEvent } = require("./lib/settle");
+const { flush, queue } = require("./lib/notify");
 const { PURPOSES, VISIBILITY } = require("./lib/allocation");
 const { refreshTransparency } = require("./lib/transparency");
 
@@ -276,7 +277,9 @@ exports.refundDonation = onCall({ ...REGION, secrets: [KEY_SECRET] }, async (req
 
   const refund = await rzp(`/payments/${d.paymentId}/refund`, { method: "POST", body: JSON.stringify({ amount: d.chargePaise, notes: { donationId, reason: reason.slice(0, 200) } }) });
 
+  const notes = [];
   await db.runTransaction(async (tx) => {
+    notes.length = 0;
     const live = allocs.docs.filter((x) => !["reversed", "cancelled"].includes(x.get("status")));
     const cases = await Promise.all(live.map((x) => (x.get("caseId") ? tx.get(db.doc(`cases/${x.get("caseId")}`)) : null)));
     tx.update(ref, { status: "refunded", donationStatus: "refunded", paymentStatus: "refunded", refundId: refund.id, refundReason: reason, refundedAt: FieldValue.serverTimestamp() });
@@ -293,9 +296,10 @@ exports.refundDonation = onCall({ ...REGION, secrets: [KEY_SECRET] }, async (req
       }
     });
     tx.update(ref, { allocatedAmount: 0 });
-    notify(db, tx, d.payerId ?? d.donorId, "Your donation has been refunded.", null);
+    queue(notes, d.payerId ?? d.donorId, "refunded", "Your donation has been refunded.", null);
     audit(db, tx, { action: "DONATION_REFUNDED", actor: uid, entityType: "donation", entityId: donationId, oldValue: { status: "paid" }, newValue: { status: "refunded", refundId: refund.id }, reason });
   });
+  await flush(db, notes);
   await refreshTransparency(db);
   return { ok: true, refundId: refund.id };
 });

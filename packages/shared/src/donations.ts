@@ -57,3 +57,19 @@ export function donationStage(d: { status?: string; allocatedAmount?: number; di
   if (a > 0) return "Partly allocated";
   return "Payment verified, allocation pending";
 }
+
+// ---- Donor profile and notification choices ----
+export const DONOR_CURRENCIES = ["INR", "USD", "EUR", "GBP", "AED", "SAR", "CAD", "AUD", "SGD", "QAR", "KWD"] as const;
+export type DonorCurrency = (typeof DONOR_CURRENCIES)[number];
+
+/** In-app notifications a donor can switch on or off. Email and SMS are not offered. */
+export const DONOR_NOTIFICATION_LABELS = {
+  received: "My donation is received",
+  allocated: "My donation is allocated to a case",
+  disbursed: "My allocated funds are paid out",
+  refunded: "A refund is issued",
+} as const;
+export type DonorNotificationKey = keyof typeof DONOR_NOTIFICATION_LABELS;
+export const DONOR_NOTIFICATION_KEYS = Object.keys(DONOR_NOTIFICATION_LABELS) as DonorNotificationKey[];
+/** Everything is on until the donor turns it off. */
+export const donorWants = (prefs: Partial<Record<DonorNotificationKey, boolean>> | undefined, key: DonorNotificationKey) => prefs?.[key] !== false;

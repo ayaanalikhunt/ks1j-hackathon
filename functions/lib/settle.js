@@ -4,11 +4,8 @@
 const { FieldValue } = require("firebase-admin/firestore");
 const { refreshTransparency } = require("./transparency");
 const { caseRefOf } = require("./allocation");
+const { flush, queue } = require("./notify");
 
-function notify(db, tx, userId, text, link) {
-  if (!userId) return;
-  tx.create(db.collection("notifications").doc(), { userId, text, link: link ?? null, read: false, at: FieldValue.serverTimestamp() });
-}
 
 function caseEvent(db, tx, c, caseId, kind, actorId, note) {
   tx.create(db.collection("caseEvents").doc(), {
@@ -51,8 +48,10 @@ function audit(db, tx, entry) {
 async function settleDonation(db, donationId, extra, confirmedBy) {
   const ref = db.doc(`donations/${donationId}`);
   let already = false;
+  const notes = [];
 
   await db.runTransaction(async (tx) => {
+    notes.length = 0; // the transaction may retry
     // All reads first.
     const snap = await tx.get(ref);
     if (!snap.exists) throw Object.assign(new Error("No such donation."), { code: "not-found" });
@@ -120,7 +119,7 @@ async function settleDonation(db, donationId, extra, confirmedBy) {
         disbursedAmount: 0, reservedAmount: 0, approvedBy: confirmedBy, createdAt: FieldValue.serverTimestamp(),
       });
     }
-    notify(db, tx, d.payerId ?? d.donorId, "Your donation was successfully received.", `/donations/detail?id=${donationId}`);
+    queue(notes, d.payerId ?? d.donorId, "received", "Your donation was successfully received.", `/donations/detail?id=${donationId}`);
 
     if (d.institutionId) {
       tx.update(db.doc(`institutions/${d.institutionId}`), { received: FieldValue.increment(d.amount) });
@@ -151,8 +150,11 @@ async function settleDonation(db, donationId, extra, confirmedBy) {
     });
   });
 
-  if (!already) await refreshTransparency(db);
+  if (!already) {
+    await flush(db, notes);
+    await refreshTransparency(db);
+  }
   return { already };
 }
 
-module.exports = { settleDonation, caseEvent, audit, notify };
+module.exports = { settleDonation, caseEvent, audit };

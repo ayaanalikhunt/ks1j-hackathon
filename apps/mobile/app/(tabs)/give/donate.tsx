@@ -42,11 +42,14 @@ export default function Donate() {
   const { user, member } = useAuth();
   const card = useDocument(caseId ? `publicCases/pub-${caseId}` : null);
   const inst = useDocument(institutionId ? `institutions/${institutionId}` : null);
-  const [currency, setCurrency] = useState("INR");
+  const profile = useDocument(user ? `donors/${user.uid}` : null);
+  const [pickedCurrency, setCurrency] = useState<string | null>(null);
+  const currency = pickedCurrency ?? profile?.preferredCurrency ?? "INR";
   const [amount, setAmount] = useState("");
   const [purpose, setPurpose] = useState("general_support");
   const [visibility, setVisibility] = useState<"private" | "public" | "anonymous">("private");
-  const [displayName, setDisplayName] = useState("");
+  const [typedName, setDisplayName] = useState<string | null>(null);
+  const displayName = typedName ?? profile?.displayName ?? "";
   const [coverFees, setCoverFees] = useState(false);
   const [consent, setConsent] = useState(false);
   const [fund, setFund] = useState<"general" | "sehme_sadaat">(wantedFund === "sehme_sadaat" ? "sehme_sadaat" : "general");

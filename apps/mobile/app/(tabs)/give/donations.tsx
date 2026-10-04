@@ -50,6 +50,7 @@ export default function MyDonations() {
           </>
         )}
         <Btn label="Donate again" onPress={() => router.push("/give/donate")} />
+        <Btn quiet label="Profile and notifications" onPress={() => router.push("/give/donor-profile")} />
       </Screen>
     </RequireAuth>
   );

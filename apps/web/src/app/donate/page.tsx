@@ -55,11 +55,15 @@ function Form() {
   const { user, member } = useAuth();
   const router = useRouter();
   const caseId = useSearchParams().get("caseId");
-  const [currency, setCurrency] = useState("INR");
+  const [profile, setProfile] = useState<{ preferredCurrency?: string; displayName?: string } | null>(null);
+  useEffect(() => (user ? onSnapshot(doc(db, "donors", user.uid), (d) => setProfile(d.exists() ? (d.data() as typeof profile) : null), () => {}) : undefined), [user]);
+  const [pickedCurrency, setCurrency] = useState<string | null>(null);
+  const currency = pickedCurrency ?? profile?.preferredCurrency ?? "INR";
   const [amount, setAmount] = useState("");
   const [purpose, setPurpose] = useState("general_support");
   const [visibility, setVisibility] = useState("private");
-  const [displayName, setDisplayName] = useState("");
+  const [typedName, setDisplayName] = useState<string | null>(null);
+  const displayName = typedName ?? profile?.displayName ?? "";
   const [coverFees, setCoverFees] = useState(false);
   const [consent, setConsent] = useState(false);
   const [card, setCard] = useState<{ publicCaseId?: string; title?: string; sadaat?: boolean; number?: number } | null>(null);

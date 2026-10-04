@@ -1,6 +1,6 @@
 "use client";
 
-import { collection, query, where } from "firebase/firestore";
+import { collection, doc, query, updateDoc, where } from "firebase/firestore";
 import Link from "next/link";
 import { PURPOSE_LABELS, donationStage, formatDate, csvRow, formatRupees } from "@ks1j/shared";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -28,6 +28,11 @@ export default function MyDonations() {
   const { user } = useAuth();
   const q = user ? query(collection(db, "donations"), where("payerId", "==", user.uid)) : null;
   const { rows, loading, error } = useQueryRows<MyDonation>(q, user?.uid ?? "");
+  const notes = useQueryRows<{ text: string; read?: boolean; at?: { toDate(): Date }; link?: string | null }>(
+    user ? query(collection(db, "notifications"), where("userId", "==", user.uid)) : null,
+    `n${user?.uid ?? ""}`,
+  );
+  const updates = [...notes.rows].sort((a, b) => (b.at?.toDate().getTime() ?? Infinity) - (a.at?.toDate().getTime() ?? Infinity)).slice(0, 8);
   const mine = [...rows].sort((a, b) => (b.createdAt?.toDate().getTime() ?? 0) - (a.createdAt?.toDate().getTime() ?? 0));
 
   function exportCsv() {
@@ -47,13 +52,14 @@ export default function MyDonations() {
         {error && <Banner kind="error">{error}</Banner>}
         {user && !loading && mine.length === 0 && (
           <Banner>
-            You have not made a donation yet. <Link className="underline" href="/donate">Donate now</Link>.
+            You have not made a donation yet. <Link className="underline" href="/donate">Donate now</Link> or <Link className="underline" href="/donations/profile">set up your profile</Link>.
           </Banner>
         )}
         {mine.length > 0 && (
           <div className="mb-4 flex gap-2">
             <Button onClick={exportCsv}>Download CSV</Button>
             <Link href="/donate" className="inline-flex min-h-11 items-center rounded-lg border border-line px-4 text-sm font-semibold">Donate again</Link>
+            <Link href="/donations/profile" className="inline-flex min-h-11 items-center rounded-lg border border-line px-4 text-sm font-semibold">Profile and notifications</Link>
           </div>
         )}
         <div className="grid gap-3 sm:grid-cols-2">
@@ -72,6 +78,22 @@ export default function MyDonations() {
             </Link>
           ))}
         </div>
+        {updates.length > 0 && (
+          <>
+            <h2 className="mb-2 mt-8 font-display text-2xl">Updates</h2>
+            <div className="space-y-2">
+              {updates.map((n) => (
+                <Card key={n.id}>
+                  <p className={n.read ? "text-muted" : "font-semibold"}>{n.text}</p>
+                  <p className="mt-1 flex items-center gap-3 text-sm text-muted">
+                    {n.at ? formatDate(n.at.toDate()) : ""}
+                    {!n.read && <button className="underline" onClick={() => updateDoc(doc(db, "notifications", n.id), { read: true })}>Mark as read</button>}
+                  </p>
+                </Card>
+              ))}
+            </div>
+          </>
+        )}
       </main>
     </>
   );
