@@ -1,5 +1,6 @@
 import { addDoc, collection, deleteDoc, doc, serverTimestamp, setDoc, where } from "firebase/firestore";
 import { useState } from "react";
+import { useLang } from "@/lib/i18n";
 import { View } from "react-native";
 import { initials, timeAgo } from "@ks1j/shared";
 import { Banner, Body, Btn, Card, Field } from "@/components/ui";
@@ -8,6 +9,7 @@ import { db } from "@/lib/firebase";
 import { useCollection } from "@/lib/firestore";
 
 function PostItem({ post }: { post: any }) {
+  const { t: tr } = useLang();
   const { user } = useAuth();
   const uid = user!.uid;
   const likes = useCollection(`communityPosts/${post.id}/appreciations`);
@@ -36,8 +38,8 @@ function PostItem({ post }: { post: any }) {
       </Body>
       <Body>{post.body}</Body>
       <View style={{ flexDirection: "row", gap: 8 }}>
-        <Btn quiet label={`${mine ? "Appreciated" : "Appreciate"} (${likes.rows.length})`} onPress={toggle} />
-        {post.authorId !== uid && <Btn quiet label={reported ? "Reported" : "Report"} onPress={report} disabled={reported} />}
+        <Btn quiet label={`${mine ? tr("postUi.4") : tr("postUi.5")} (${likes.rows.length})`} onPress={toggle} />
+        {post.authorId !== uid && <Btn quiet label={reported ? tr("postUi.6") : tr("postUi.7")} onPress={report} disabled={reported} />}
       </View>
     </Card>
   );
@@ -45,6 +47,7 @@ function PostItem({ post }: { post: any }) {
 
 /** Main feed (groupId = null) or one group's discussion. */
 export function PostList({ groupId = null, authorName }: { groupId?: string | null; authorName: string }) {
+  const { t: tr } = useLang();
   const { user } = useAuth();
   const [body, setBody] = useState("");
   const [err, setErr] = useState<string | null>(null);
@@ -68,11 +71,11 @@ export function PostList({ groupId = null, authorName }: { groupId?: string | nu
   return (
     <>
       <Card>
-        <Field label="Share something" value={body} onChangeText={setBody} multiline />
-        <Btn label="Post" onPress={post} disabled={!body.trim()} />
+        <Field label={tr("postUi.1")} value={body} onChangeText={setBody} multiline />
+        <Btn label={tr("postUi.2")} onPress={post} disabled={!body.trim()} />
         {err && <Banner error>{err}</Banner>}
       </Card>
-      {posts.length === 0 && <Banner>Nothing here yet. Be the first.</Banner>}
+      {posts.length === 0 && <Banner>{tr("postUi.3")}</Banner>}
       {posts.map((p) => (
         <PostItem key={p.id} post={p} />
       ))}

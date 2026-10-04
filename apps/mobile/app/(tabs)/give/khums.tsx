@@ -1,5 +1,6 @@
 import { addDoc, collection, serverTimestamp, where } from "firebase/firestore";
 import { router } from "expo-router";
+import { useLang } from "@/lib/i18n";
 import { useState } from "react";
 import { KHUMS_DISCLAIMER, formatRupees, isoToDmy, khumsDue, khumsSplit, parseDmy } from "@ks1j/shared";
 import { RequireAuth } from "@/components/RequireAuth";
@@ -9,6 +10,7 @@ import { db } from "@/lib/firebase";
 import { useCollection } from "@/lib/firestore";
 
 export default function Khums() {
+  const { t } = useLang();
   const { user } = useAuth();
   const uid = user?.uid ?? "";
   const [yearEnd, setYearEnd] = useState("");
@@ -51,29 +53,29 @@ export default function Khums() {
   }
 
   return (
-    <RequireAuth eyebrow="Give" title="Khums calculator">
+    <RequireAuth eyebrow={t("khumsUi.1")} title={t("khumsUi.2")}>
       <Screen
-        eyebrow="Give"
-        title="Khums calculator"
-        intro="Enter what is left in savings at your Khums year-end. Khums is one fifth, shared equally between Sehme Imam and Sehme Sadaat."
+        eyebrow={t("khumsUi.1")}
+        title={t("khumsUi.2")}
+        intro={t("khumsUi.3")}
       >
-        <Field label="Your Khums year-end (DD/MM/YYYY)" value={yearEnd} onChangeText={setYearEnd} placeholder="30/09/2026" />
-        <Field label="Savings left at year-end (₹)" value={savings} onChangeText={setSavings} keyboardType="number-pad" />
+        <Field label={t("khumsUi.4")} value={yearEnd} onChangeText={setYearEnd} placeholder="30/09/2026" />
+        <Field label={t("khumsUi.5")} value={savings} onChangeText={setSavings} keyboardType="number-pad" />
         {valid && (
           <Card>
-            <Body muted>Khums due (20%)</Body>
+            <Body muted>{t("khumsUi.9")}</Body>
             <Heading>{formatRupees(due)}</Heading>
             <Body>Sehme Imam: {formatRupees(split.imam)}</Body>
             <Body>Sehme Sadaat: {formatRupees(split.sadaat)}</Body>
           </Card>
         )}
         <Banner>{KHUMS_DISCLAIMER}</Banner>
-        <Btn label="Save this calculation" onPress={save} disabled={!valid || !okDate} />
+        <Btn label={t("khumsUi.6")} onPress={save} disabled={!valid || !okDate} />
         {msg && <Banner>{msg}</Banner>}
 
         {latest && left && (
           <>
-            <Heading>What is left to pay</Heading>
+            <Heading>{t("khumsUi.10")}</Heading>
             <Card>
               <Body muted>From your calculation for the year ending {isoToDmy(latest.yearEnd)}</Body>
               <Body>
@@ -83,8 +85,8 @@ export default function Khums() {
                 Sehme Sadaat left: {formatRupees(left.sadaat)} of {formatRupees(latest.sadaat ?? 0)}
               </Body>
             </Card>
-            <Btn label="Pay Sehme Imam" onPress={() => router.push("/give/institutions")} />
-            <Btn label="Pay Sehme Sadaat" onPress={() => router.push("/give/cases?filter=sadaat&fund=sehme_sadaat")} />
+            <Btn label={t("khumsUi.7")} onPress={() => router.push("/give/institutions")} />
+            <Btn label={t("khumsUi.8")} onPress={() => router.push("/give/cases?filter=sadaat&fund=sehme_sadaat")} />
           </>
         )}
       </Screen>

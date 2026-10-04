@@ -1,5 +1,6 @@
 import { useLocalSearchParams } from "expo-router";
 import { addDoc, collection, getDocs, serverTimestamp } from "firebase/firestore";
+import { useLang } from "@/lib/i18n";
 import { useCallback, useEffect, useState } from "react";
 import { CommunityGate } from "@/components/CommunityGate";
 import { Banner, Body, Btn, Card, Field, Screen } from "@/components/ui";
@@ -8,6 +9,7 @@ import { db } from "@/lib/firebase";
 import { useDocument } from "@/lib/firestore";
 
 function Inner() {
+  const { t } = useLang();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const uid = user!.uid;
@@ -42,10 +44,10 @@ function Inner() {
     load();
   };
 
-  if (!conn) return <Screen eyebrow="Community" title="Chat" />;
+  if (!conn) return <Screen eyebrow={t("cChat.1")} title={t("cChat.2")} />;
   const other = conn.fromId === uid ? conn.toName : conn.fromName;
   return (
-    <Screen eyebrow="Community" title={other} intro="Keep phone numbers private until you are both comfortable.">
+    <Screen eyebrow={t("cChat.1")} title={other} intro={t("cChat.3")}>
       <Card>
         <Body muted>Original request: {conn.note}</Body>
         {conn.preferredTime ? <Body muted>Preferred time: {conn.preferredTime}</Body> : null}
@@ -57,15 +59,16 @@ function Inner() {
           <Body>{m.text}</Body>
         </Card>
       ))}
-      <Field label="Message" value={text} onChangeText={setText} multiline />
-      <Btn label="Send" onPress={send} disabled={!text.trim()} />
+      <Field label={t("cChat.4")} value={text} onChangeText={setText} multiline />
+      <Btn label={t("cChat.5")} onPress={send} disabled={!text.trim()} />
     </Screen>
   );
 }
 
 export default function Chat() {
+  const { t } = useLang();
   return (
-    <CommunityGate title="Chat">
+    <CommunityGate title={t("cChat.2")}>
       <Inner />
     </CommunityGate>
   );

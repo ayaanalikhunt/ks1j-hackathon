@@ -1,5 +1,6 @@
 import { addDoc, collection, doc, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { useState } from "react";
+import { useLang } from "@/lib/i18n";
 import { View } from "react-native";
 import { LOAN_STATUS_LABELS, formatRupees, isoToDmy, minEmi } from "@ks1j/shared";
 import { ProofSlot } from "@/components/ProofSlot";
@@ -15,6 +16,7 @@ const nice = (d?: string) => isoToDmy(d);
 
 /** Asking for a pause or a lower monthly amount. Reminders stop until a trustee decides. */
 function Hardship({ loan, onDone }: { loan: any; onDone: (m: string) => void }) {
+  const { t } = useLang();
   const { user } = useAuth();
   const [type, setType] = useState<"pause" | "lower">("pause");
   const [months, setMonths] = useState(2);
@@ -45,10 +47,10 @@ function Hardship({ loan, onDone }: { loan: any; onDone: (m: string) => void }) 
 
   return (
     <View style={{ gap: 8 }}>
-      <Body bold>What would help?</Body>
+      <Body bold>{t("loansUi.12")}</Body>
       <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
-        <Chip label="Pause for a few months" on={type === "pause"} onPress={() => setType("pause")} />
-        <Chip label="Pay a lower amount" on={type === "lower"} onPress={() => setType("lower")} />
+        <Chip label={t("loansUi.1")} on={type === "pause"} onPress={() => setType("pause")} />
+        <Chip label={t("loansUi.2")} on={type === "lower"} onPress={() => setType("lower")} />
       </View>
       {type === "pause" ? (
         <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
@@ -57,17 +59,18 @@ function Hardship({ loan, onDone }: { loan: any; onDone: (m: string) => void }) 
           ))}
         </View>
       ) : (
-        <Field label="The monthly amount you can manage (₹)" value={newEmi} onChangeText={setNewEmi} keyboardType="number-pad" />
+        <Field label={t("loansUi.3")} value={newEmi} onChangeText={setNewEmi} keyboardType="number-pad" />
       )}
-      <Field label="What has changed?" value={reason} onChangeText={setReason} multiline />
-      <ProofSlot label="Income proof, if you have it (optional)" value={proof} onChange={setProof} />
+      <Field label={t("loansUi.4")} value={reason} onChangeText={setReason} multiline />
+      <ProofSlot label={t("loansUi.5")} value={proof} onChange={setProof} />
       {err && <Banner error>{err}</Banner>}
-      <Btn label="Send the request" onPress={send} disabled={!ok} />
+      <Btn label={t("loansUi.6")} onPress={send} disabled={!ok} />
     </View>
   );
 }
 
 export default function Loans() {
+  const { t } = useLang();
   const { user } = useAuth();
   const uid = user?.uid ?? "";
   const loans = useCollection(user ? "loans" : null, [where("borrowerId", "==", uid)], [uid]);
@@ -93,13 +96,13 @@ export default function Loans() {
     );
 
   return (
-    <RequireAuth eyebrow="Services" title="My loans">
-      <Screen eyebrow="Services" title="My loans" intro="These are loans you repay, not donations. No interest. No late fees. If you fall behind, a person will reach out kindly.">
+    <RequireAuth eyebrow={t("loansUi.7")} title={t("loansUi.8")}>
+      <Screen eyebrow={t("loansUi.7")} title={t("loansUi.8")} intro={t("loansUi.9")}>
         {(loans.error || hardships.error) && <Banner error>{loans.error ?? hardships.error}</Banner>}
         {msg && <Banner>{msg}</Banner>}
         {reminders.length > 0 && (
           <>
-            <Heading>Messages</Heading>
+            <Heading>{t("loansUi.13")}</Heading>
             {reminders.map((n) => (
               <Card key={n.id}>
                 <Body>{n.text}</Body>
@@ -108,7 +111,7 @@ export default function Loans() {
             ))}
           </>
         )}
-        {loans.rows.length === 0 && <Banner>No loans yet.</Banner>}
+        {loans.rows.length === 0 && <Banner>{t("loansUi.14")}</Banner>}
         {loans.rows.map((l) => {
           const min = minEmi(l.principal);
           const left = l.principal - (l.repaid ?? 0);
@@ -141,7 +144,7 @@ export default function Loans() {
                   {l.familyEmi ? (
                     <Banner>
                       You proposed {formatRupees(l.familyEmi)} a month.{" "}
-                      {l.familyEmi === l.trusteeEmi ? "It matches the trustee's amount. The trustee will now confirm the plan." : "Waiting for the trustee to accept it."}
+                      {l.familyEmi === l.trusteeEmi ? t("loansUi.19") : t("loansUi.20")}
                     </Banner>
                   ) : null}
                   <Btn
@@ -150,14 +153,14 @@ export default function Loans() {
                     disabled={l.familyEmi === l.trusteeEmi}
                   />
                   <Field
-                    label="Or propose your own amount (₹ a month)"
+                    label={t("loansUi.10")}
                     value={proposal[l.id] ?? ""}
                     onChangeText={(v) => setProposal((p) => ({ ...p, [l.id]: v }))}
                     keyboardType="number-pad"
                   />
                   <Btn
                     quiet
-                    label="Propose this amount"
+                    label={t("loansUi.11")}
                     disabled={num(proposal[l.id] ?? "") < min}
                     onPress={() => guard(updateDoc(doc(db, "loans", l.id), { familyEmi: num(proposal[l.id] ?? "") }), "Sent. The trustee will accept it or suggest another amount.")}
                   />
@@ -172,10 +175,10 @@ export default function Loans() {
                     {formatRupees(l.emi)} a month · {formatRupees(left)} left
                   </Body>
                   {l.nextDue ? <Body>Next instalment: {nice(l.nextDue)}</Body> : null}
-                  {waitingHardship && <Banner>Your request for help is with a trustee. Reminders are paused until they decide.</Banner>}
+                  {waitingHardship && <Banner>{t("loansUi.15")}</Banner>}
                   <Btn label={`Pay ${formatRupees(Math.min(l.emi, left))}`} onPress={() => repay(l, Math.min(l.emi, left))} disabled={pendingPay} />
-                  {pendingPay && <Body muted>A payment is waiting for the office to confirm.</Body>}
-                  <Btn quiet label={help === l.id ? "Close" : "I am finding it hard to pay"} onPress={() => setHelp(help === l.id ? null : l.id)} />
+                  {pendingPay && <Body muted>{t("loansUi.16")}</Body>}
+                  <Btn quiet label={help === l.id ? t("loansUi.21") : t("loansUi.22")} onPress={() => setHelp(help === l.id ? null : l.id)} />
                   {help === l.id && <Hardship loan={l} onDone={(m) => { setMsg(m); setHelp(null); }} />}
                 </View>
               )}
@@ -189,8 +192,8 @@ export default function Loans() {
             </Card>
           );
         })}
-        <Heading>Need a loan?</Heading>
-        <Body muted>Start from Services, Education loan.</Body>
+        <Heading>{t("loansUi.17")}</Heading>
+        <Body muted>{t("loansUi.18")}</Body>
       </Screen>
     </RequireAuth>
   );

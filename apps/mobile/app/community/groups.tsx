@@ -1,5 +1,6 @@
 import { Link } from "expo-router";
 import { addDoc, collection, doc, serverTimestamp, setDoc } from "firebase/firestore";
+import { useLang } from "@/lib/i18n";
 import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { CommunityGate, useMyProfile } from "@/components/CommunityGate";
@@ -9,6 +10,7 @@ import { db } from "@/lib/firebase";
 import { useCollection, useDocument } from "@/lib/firestore";
 
 function GroupRow({ g, name }: { g: any; name: string }) {
+  const { t } = useLang();
   const { user } = useAuth();
   const uid = user!.uid;
   const mine = useDocument(`communityGroups/${g.id}/members/${uid}`);
@@ -21,20 +23,20 @@ function GroupRow({ g, name }: { g: any; name: string }) {
   return (
     <Card>
       <Body bold>
-        {g.name} · {g.kind === "profession" ? "Profession" : "Interest"}
+        {g.name} · {g.kind === "profession" ? t("cGroups.7") : t("cGroups.8")}
         {g.private ? " · Private" : ""}
       </Body>
       <Body muted>{g.description}</Body>
       {mine?.status === "member" ? (
         <Link href={{ pathname: "/community/group", params: { id: g.id } }} asChild>
           <Pressable>
-            <Btn label="Open" onPress={() => {}} />
+            <Btn label={t("cGroups.1")} onPress={() => {}} />
           </Pressable>
         </Link>
       ) : mine?.status === "pending" ? (
-        <Banner>Request sent. Waiting for the owner.</Banner>
+        <Banner>{t("cGroups.10")}</Banner>
       ) : (
-        <Btn label={g.private ? "Request to join" : "Join"} onPress={join} />
+        <Btn label={g.private ? t("cGroups.13") : t("cGroups.14")} onPress={join} />
       )}
       {err && <Banner error>{err}</Banner>}
     </Card>
@@ -42,6 +44,7 @@ function GroupRow({ g, name }: { g: any; name: string }) {
 }
 
 function Inner() {
+  const { t } = useLang();
   const { user } = useAuth();
   const me = useMyProfile();
   const { rows } = useCollection("communityGroups");
@@ -74,28 +77,29 @@ function Inner() {
   }
 
   return (
-    <Screen eyebrow="Community" title="Groups" intro="Profession circles and interest groups.">
-      {groups.length === 0 && <Banner>No groups yet.</Banner>}
+    <Screen eyebrow={t("cGroups.2")} title={t("cGroups.3")} intro={t("cGroups.4")}>
+      {groups.length === 0 && <Banner>{t("cGroups.11")}</Banner>}
       {groups.map((g) => (
         <GroupRow key={g.id} g={g} name={me?.fullName ?? ""} />
       ))}
-      <Heading>Start a group</Heading>
-      <Field label="Name" value={name} onChangeText={setName} />
-      <Field label="What is it about?" value={description} onChangeText={setDescription} multiline />
+      <Heading>{t("cGroups.12")}</Heading>
+      <Field label={t("cGroups.5")} value={name} onChangeText={setName} />
+      <Field label={t("cGroups.6")} value={description} onChangeText={setDescription} multiline />
       <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
-        <Chip label="Profession" on={kind === "profession"} onPress={() => setKind("profession")} />
-        <Chip label="Interest" on={kind === "interest"} onPress={() => setKind("interest")} />
-        <Chip label={isPrivate ? "Private" : "Open"} on={isPrivate} onPress={() => setIsPrivate(!isPrivate)} />
+        <Chip label={t("cGroups.7")} on={kind === "profession"} onPress={() => setKind("profession")} />
+        <Chip label={t("cGroups.8")} on={kind === "interest"} onPress={() => setKind("interest")} />
+        <Chip label={isPrivate ? t("cGroups.15") : t("cGroups.1")} on={isPrivate} onPress={() => setIsPrivate(!isPrivate)} />
       </View>
       {err && <Banner error>{err}</Banner>}
-      <Btn label="Create group" onPress={create} disabled={!name.trim()} />
+      <Btn label={t("cGroups.9")} onPress={create} disabled={!name.trim()} />
     </Screen>
   );
 }
 
 export default function Groups() {
+  const { t } = useLang();
   return (
-    <CommunityGate title="Groups">
+    <CommunityGate title={t("cGroups.3")}>
       <Inner />
     </CommunityGate>
   );

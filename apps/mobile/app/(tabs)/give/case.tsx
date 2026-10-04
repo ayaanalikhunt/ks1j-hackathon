@@ -1,17 +1,19 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { CASE_TYPE_LABELS, casePublicId, formatRupees, type CaseType } from "@ks1j/shared";
+import { useLang } from "@/lib/i18n";
 import { Banner, Body, Btn, Card, Screen } from "@/components/ui";
 import { useDocument } from "@/lib/firestore";
 
 export default function CaseGive() {
+  const { t } = useLang();
   const { id, fund } = useLocalSearchParams<{ id: string; fund?: string }>();
   const c = useDocument(`publicCases/${id}`);
 
-  if (c === undefined) return <Screen eyebrow="Give" title="Case" />;
+  if (c === undefined) return <Screen eyebrow={t("caseUi.1")} title={t("caseUi.2")} />;
   if (c === null)
     return (
-      <Screen eyebrow="Give" title="Case">
-        <Banner>This case is no longer open for gifts.</Banner>
+      <Screen eyebrow={t("caseUi.1")} title={t("caseUi.2")}>
+        <Banner>{t("caseUi.4")}</Banner>
       </Screen>
     );
   return (
@@ -24,9 +26,9 @@ export default function CaseGive() {
         <Body muted>
           {formatRupees(c.amountRaised ?? 0)} raised of {formatRupees(c.amountNeeded ?? 0)}
         </Body>
-        <Body muted>A donation: money given without any expectation of repayment.</Body>
+        <Body muted>{t("caseUi.5")}</Body>
       </Card>
-      <Btn label="Give to this case" onPress={() => router.push({ pathname: "/give/donate", params: { caseId: c.caseId, fund: fund ?? "" } })} />
+      <Btn label={t("caseUi.3")} onPress={() => router.push({ pathname: "/give/donate", params: { caseId: c.caseId, fund: fund ?? "" } })} />
     </Screen>
   );
 }

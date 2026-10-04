@@ -1,5 +1,6 @@
 import { addDoc, collection, serverTimestamp, where } from "firebase/firestore";
 import { useState } from "react";
+import { useLang } from "@/lib/i18n";
 import { formatRupees } from "@ks1j/shared";
 import { RequireAuth } from "@/components/RequireAuth";
 import { Banner, Body, Btn, Card, Screen } from "@/components/ui";
@@ -8,6 +9,7 @@ import { db } from "@/lib/firebase";
 import { useCollection } from "@/lib/firestore";
 
 export default function Lawajam() {
+  const { t } = useLang();
   const { user, member } = useAuth();
   const uid = user?.uid ?? "";
   const hid = (member as { householdId?: string } | null)?.householdId;
@@ -33,21 +35,19 @@ export default function Lawajam() {
   const rows = [...records.rows].sort((a, b) => String(b.year).localeCompare(String(a.year)));
 
   return (
-    <RequireAuth eyebrow="Give" title="Lawajam">
-      <Screen eyebrow="Give" title="Lawajam" intro="Yearly dues for your household, in their own account, never mixed with Khums or cases.">
+    <RequireAuth eyebrow={t("lawajamUi.1")} title={t("lawajamUi.2")}>
+      <Screen eyebrow={t("lawajamUi.1")} title={t("lawajamUi.2")} intro={t("lawajamUi.3")}>
         {!hid && (
-          <Banner>
-            Your household is not linked yet. The Jamaat office links you after checking who you are. Until then you cannot see household dues.
-          </Banner>
+          <Banner>{t("lawajamUi.4")}</Banner>
         )}
-        {hid && rows.length === 0 && <Banner>Nothing has been raised for your household yet.</Banner>}
+        {hid && rows.length === 0 && <Banner>{t("lawajamUi.5")}</Banner>}
         {rows.map((r) => (
           <Card key={r.id}>
             <Body bold>{r.year}</Body>
             <Body muted>
               {r.householdName} · {formatRupees(r.amount)}
             </Body>
-            <Body>{r.status === "paid" ? "Paid. Thank you." : pendingFor(r.id) ? "Payment recorded, waiting for the office to confirm." : "Due"}</Body>
+            <Body>{r.status === "paid" ? "Paid. Thank you." : pendingFor(r.id) ? t("lawajamUi.6") : t("lawajamUi.7")}</Body>
             {r.status === "due" && !pendingFor(r.id) && <Btn label={`Pay ${formatRupees(r.amount)}`} onPress={() => pay(r as never)} />}
           </Card>
         ))}

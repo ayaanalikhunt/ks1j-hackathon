@@ -1,5 +1,6 @@
 import { Link } from "expo-router";
 import { doc, updateDoc, where } from "firebase/firestore";
+import { useLang } from "@/lib/i18n";
 import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { CommunityGate } from "@/components/CommunityGate";
@@ -9,6 +10,7 @@ import { db } from "@/lib/firebase";
 import { useCollection } from "@/lib/firestore";
 
 function Inner() {
+  const { t } = useLang();
   const { user } = useAuth();
   const uid = user!.uid;
   const [tab, setTab] = useState<"messages" | "requests">("messages");
@@ -21,20 +23,20 @@ function Inner() {
   const outPending = outgoing.filter((c) => c.status === "pending");
 
   return (
-    <Screen eyebrow="Community" title="Messages" intro="You can only chat once the other person accepts.">
+    <Screen eyebrow={t("cMsgs.1")} title={t("cMsgs.2")} intro={t("cMsgs.3")}>
       <View style={{ flexDirection: "row", gap: 8 }}>
-        <Chip label="Messages" on={tab === "messages"} onPress={() => setTab("messages")} />
+        <Chip label={t("cMsgs.2")} on={tab === "messages"} onPress={() => setTab("messages")} />
         <Chip label={`Requests (${inPending.length})`} on={tab === "requests"} onPress={() => setTab("requests")} />
       </View>
       {tab === "messages" ? (
         <>
-          {accepted.length === 0 && <Banner>No conversations yet.</Banner>}
+          {accepted.length === 0 && <Banner>{t("cMsgs.6")}</Banner>}
           {accepted.map((c) => (
             <Link key={c.id} href={{ pathname: "/community/chat", params: { id: c.id } }} asChild>
               <Pressable>
                 <Card>
                   <Body bold>{c.fromId === uid ? c.toName : c.fromName}</Body>
-                  <Body muted>{c.kind === "call" ? "Call request" : "Message"} · tap to open</Body>
+                  <Body muted>{c.kind === "call" ? t("cMsgs.8") : t("cMsgs.9")} · tap to open</Body>
                 </Card>
               </Pressable>
             </Link>
@@ -42,7 +44,7 @@ function Inner() {
         </>
       ) : (
         <>
-          {inPending.length + outPending.length === 0 && <Banner>No requests.</Banner>}
+          {inPending.length + outPending.length === 0 && <Banner>{t("cMsgs.7")}</Banner>}
           {inPending.map((c) => (
             <Card key={c.id}>
               <Body bold>
@@ -50,8 +52,8 @@ function Inner() {
               </Body>
               <Body>{c.note}</Body>
               {c.preferredTime ? <Body muted>Preferred time: {c.preferredTime}</Body> : null}
-              <Btn label="Accept" onPress={() => answer(c.id, "accepted")} />
-              <Btn quiet label="Decline" onPress={() => answer(c.id, "declined")} />
+              <Btn label={t("cMsgs.4")} onPress={() => answer(c.id, "accepted")} />
+              <Btn quiet label={t("cMsgs.5")} onPress={() => answer(c.id, "declined")} />
             </Card>
           ))}
           {outPending.map((c) => (
@@ -67,8 +69,9 @@ function Inner() {
 }
 
 export default function Messages() {
+  const { t } = useLang();
   return (
-    <CommunityGate title="Messages">
+    <CommunityGate title={t("cMsgs.2")}>
       <Inner />
     </CommunityGate>
   );

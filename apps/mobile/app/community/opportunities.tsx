@@ -1,5 +1,6 @@
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { useState } from "react";
+import { useLang } from "@/lib/i18n";
 import { View } from "react-native";
 import { OPPORTUNITY_KINDS, OPPORTUNITY_LABELS, type OpportunityKind } from "@ks1j/shared";
 import { CommunityGate, useMyProfile } from "@/components/CommunityGate";
@@ -9,6 +10,7 @@ import { db } from "@/lib/firebase";
 import { useCollection } from "@/lib/firestore";
 
 function Inner() {
+  const { t } = useLang();
   const { user } = useAuth();
   const me = useMyProfile();
   const { rows } = useCollection("communityOpportunities");
@@ -38,8 +40,8 @@ function Inner() {
       .catch((e) => setErr((e as Error).message));
 
   return (
-    <Screen eyebrow="Community" title="Opportunities" intro="Jobs, internships and referrals shared by members.">
-      {list.length === 0 && <Banner>Nothing posted yet.</Banner>}
+    <Screen eyebrow={t("cOpps.1")} title={t("cOpps.2")} intro={t("cOpps.3")}>
+      {list.length === 0 && <Banner>{t("cOpps.8")}</Banner>}
       {list.map((o) => (
         <Card key={o.id}>
           <Body bold>
@@ -50,24 +52,25 @@ function Inner() {
           <Body muted>Shared by {o.authorName}</Body>
         </Card>
       ))}
-      <Heading>Share an opportunity</Heading>
+      <Heading>{t("cOpps.9")}</Heading>
       <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
         {OPPORTUNITY_KINDS.map((k) => (
           <Chip key={k} label={OPPORTUNITY_LABELS[k]} on={kind === k} onPress={() => setKind(k)} />
         ))}
       </View>
-      <Field label="Title" value={title} onChangeText={setTitle} />
-      <Field label="Company" value={company} onChangeText={setCompany} />
-      <Field label="Details" value={description} onChangeText={setDescription} multiline />
+      <Field label={t("cOpps.4")} value={title} onChangeText={setTitle} />
+      <Field label={t("cOpps.5")} value={company} onChangeText={setCompany} />
+      <Field label={t("cOpps.6")} value={description} onChangeText={setDescription} multiline />
       {err && <Banner error>{err}</Banner>}
-      <Btn label="Share" onPress={add} disabled={!title.trim()} />
+      <Btn label={t("cOpps.7")} onPress={add} disabled={!title.trim()} />
     </Screen>
   );
 }
 
 export default function Opportunities() {
+  const { t } = useLang();
   return (
-    <CommunityGate title="Opportunities">
+    <CommunityGate title={t("cOpps.2")}>
       <Inner />
     </CommunityGate>
   );
