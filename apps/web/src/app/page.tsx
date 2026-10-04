@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { formatRupees } from "@ks1j/shared";
 import { CountUp } from "@/components/CountUp";
+import { PaperCollage, PhoneFan } from "@/components/HomeVisuals";
 import { SectionHead } from "@/components/SectionHead";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Card } from "@/components/ui";
@@ -47,9 +48,9 @@ export default function Home() {
     ["Active loans", s?.loansActive ?? 0, String],
   ];
   return (
-    <>
+    <div className="dark-scope">
       <SiteHeader />
-      <main className="mx-auto max-w-5xl space-y-12 px-4 py-6 sm:py-10">
+      <main className="mx-auto max-w-5xl space-y-16 px-4 py-6 sm:space-y-24 sm:py-10">
         <section
           className="hero relative overflow-hidden rounded-[28px] px-6 py-12 text-white sm:px-12 sm:py-20"
           style={{ backgroundColor: "#0b4d3a", backgroundImage: PATTERN }}
@@ -94,6 +95,28 @@ export default function Home() {
           </div>
         </section>
 
+        <section className="grid items-center gap-10 md:grid-cols-[1fr_1.1fr]">
+          <div>
+            <h2 className="split-title">Four tabs. Nothing hidden in menus.</h2>
+            <p className="split-body">
+              Large text, plain words and big buttons, so every member of the family can use it. Home shows your reminders and Jamaat news; the other three tabs are one tap away. Built for Android phones.
+            </p>
+          </div>
+          <PhoneFan />
+        </section>
+
+        <section className="grid items-center gap-10 md:grid-cols-[1.1fr_1fr]">
+          <div className="order-2 md:order-1">
+            <PaperCollage />
+          </div>
+          <div className="order-1 md:order-2">
+            <h2 className="split-title">Today, help travels on paper, office visits and forwarded messages.</h2>
+            <p className="split-body">
+              Families wait without knowing where their request is. Funds with strict rules sit in the same book. KS1J puts every request, payment and answer in one place, with the rules checked every time.
+            </p>
+          </div>
+        </section>
+
         <section>
           <SectionHead eyebrow="What you can do" title="Made for every member" />
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -120,6 +143,6 @@ export default function Home() {
         </section>
       </main>
       <footer className="border-t border-line py-6 text-center text-sm text-muted">KS1J · One Jamaat. One app.</footer>
-    </>
+    </div>
   );
 }
