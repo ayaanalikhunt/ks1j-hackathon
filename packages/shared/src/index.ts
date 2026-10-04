@@ -9,3 +9,4 @@ export * from "./fraud";
 export * from "./loans";
 export * from "./dates";
 export * from "./i18n";
+export * from "./askGuide";

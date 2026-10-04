@@ -255,6 +255,14 @@ service cloud.firestore {
       allow read: if isStaff();
       allow write: if false;
     }
+    // The Ask AI Guide: usage rows with no question text (admins read them), and the per-minute rate limit counters.
+    match /aiAuditLog/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /rateLimits/{id} {
+      allow read, write: if false;
+    }
     match /handovers/{id} {
       allow read: if isStaff();
       allow write: if false;
