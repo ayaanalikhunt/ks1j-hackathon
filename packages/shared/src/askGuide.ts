@@ -68,16 +68,16 @@ export const getAskMarja = (id: string | null | undefined) => ASK_MARJAS.find((m
 /** Opening questions (plain, everyday matters). */
 export const GUIDE_SUGGESTIONS: string[] = [
   "How do I calculate Khums on my salary?",
-  "Is listening to music permissible?",
+  "How do I pay Khums on savings I have had for years?",
   "How do I pray when travelling?",
   "What makes income halal in my job?",
   "Can I pray in a place without wudu facilities?",
   "What is taqlid and how do I follow a Marja'?",
-  "Is chess or card games permissible?",
+  "How do I make up prayers I have missed?",
   "How is khums applied on savings that keep growing?",
 ];
 
-export const GUIDE_TOPICS: string[] = ["Khums", "Salat", "Sawm", "Halal income", "Music", "Taharah", "Taqlid", "Modern life"];
+export const GUIDE_TOPICS: string[] = ["Khums", "Salat", "Sawm", "Halal income", "Qada prayers", "Taharah", "Taqlid", "Modern life"];
 
 /** One-tap commands in several languages. */
 export const COMMAND_SUGGESTIONS: string[] = ["Open donation", "દાન ખોલો", "Donation kholo", "मुझे दान करना है", "مراجع دکھاؤ", "Sistani dikhao", "Mera donation kahan gaya?"];

@@ -236,7 +236,7 @@ function Chat({ marja, onBack, onCompare }: { marja: AskMarja; onBack: () => voi
         <div ref={box} onScroll={() => { const el = box.current; if (el) near.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80; }} className="max-h-[26rem] space-y-3 overflow-y-auto pr-1" aria-live="polite">
           {turns.length === 0 && (
             <div className="py-4">
-              <p className="text-center text-muted">Ask about Khums, prayer, fasting, halal income, music, taqlid, or anything from daily life.</p>
+              <p className="text-center text-muted">Ask about Khums, prayer, fasting, halal income, taqlid, or anything from daily life.</p>
               <div className="mt-4 flex flex-wrap justify-center gap-2">
                 {GUIDE_SUGGESTIONS.slice(0, 4).map((s) => <button key={s} type="button" className={chip} onClick={() => void send(s)}>{s}</button>)}
               </div>
@@ -323,7 +323,7 @@ function Compare({ onBack }: { onBack: () => void }) {
           <Button className="!min-h-9 shrink-0 !bg-card !px-4 !text-fg border border-line" onClick={onBack}>← Back</Button>
         </div>
         <form className="mt-4 flex gap-2" onSubmit={(e) => { e.preventDefault(); void all(q); }}>
-          <input aria-label="Your question for all three Maraji" value={q} onChange={(e) => setQ(e.target.value)} maxLength={600} placeholder="e.g. Is listening to music permissible?" className="min-h-12 flex-1 rounded-full border border-line bg-bg px-4" />
+          <input aria-label="Your question for all three Maraji" value={q} onChange={(e) => setQ(e.target.value)} maxLength={600} placeholder="e.g. How do I make up prayers I have missed?" className="min-h-12 flex-1 rounded-full border border-line bg-bg px-4" />
           <Button type="submit" className="!bg-gold" disabled={busy || !q.trim()}>{busy ? "Asking…" : "Ask all three"}</Button>
         </form>
         {!asked && <div className="mt-3 flex flex-wrap gap-2">{GUIDE_SUGGESTIONS.slice(0, 4).map((s) => <button key={s} type="button" className={chip} onClick={() => void all(s)}>{s}</button>)}</div>}

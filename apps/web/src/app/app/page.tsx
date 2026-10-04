@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Banner, Card, PageHeader } from "@/components/ui";
+import { SCREENS, type ScreenId } from "@/components/home/AndroidPhone";
 
 const APK = "/downloads/ks1j.apk";
+const SHOTS: ScreenId[] = ["services", "apply", "loan", "khums", "learn"];
 
 const STEPS = [
   "Tap Download for Android below.",
@@ -32,6 +34,18 @@ export default function GetTheApp() {
       <SiteHeader />
       <main className="mx-auto max-w-3xl space-y-4 px-4 py-10">
         <PageHeader eyebrow="Mobile app" title="Get the KS1J app" intro="Help, giving and learning in one place. Use it in your browser now, or install it on Android." />
+
+        {/* Real screens from the Android app, not mock-ups. Scrolls sideways on phones. */}
+        <section aria-label="Screens from the KS1J app" className="-mx-4 overflow-x-auto px-4 pb-2 [scrollbar-width:thin]">
+          <ul className="flex gap-4 sm:justify-between">
+            {SHOTS.map((id) => (
+              <li key={id} className="w-36 shrink-0 sm:w-[8.6rem]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={SCREENS[id].src} alt={SCREENS[id].alt} width={600} height={1298} loading="lazy" decoding="async" className="w-full rounded-[1.2rem] border-4 border-[#070c09] shadow-[0_14px_30px_rgba(0,0,0,0.25)]" />
+              </li>
+            ))}
+          </ul>
+        </section>
 
         <Card className="space-y-3">
           <h2 className="font-display text-2xl">Open the app in your browser</h2>

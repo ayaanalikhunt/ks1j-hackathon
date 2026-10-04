@@ -129,6 +129,11 @@ describe("nearby and maps", () => {
   it("excludes unverified pins from ranking", () => {
     expect(findNearbyShiaMosques(me, [at("p", { verificationStatus: "PENDING_VERIFICATION" }), base]).map((r) => r.mosque.id)).toEqual(["t"]);
   });
+  it("an approximate pin ranks by distance but navigates by name and address", () => {
+    const approx = at("a", { pinPrecision: "postcode" });
+    expect(findNearbyShiaMosques(me, [approx])).toHaveLength(1);
+    expect(buildGoogleMapsUrl(approx)).toContain(encodeURIComponent(approx.address));
+  });
   it("the map link comes from the selected venue only", () => {
     expect(buildGoogleMapsUrl(base)).toBe("https://www.google.com/maps/search/?api=1&query=18.95%2C72.83");
     expect(buildGoogleMapsUrl(MOSQUES[0])).toContain(encodeURIComponent(MOSQUES[0].address));

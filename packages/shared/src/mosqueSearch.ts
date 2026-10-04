@@ -284,9 +284,12 @@ export function searchFriday(user: UserLocation | null, mosques: MosqueVenue[]):
 // ---------- Map links (built only from the selected venue, never from model output) ----------
 
 export const hasVerifiedPin = (m: MosqueVenue) => hasCoords(m) && isVerified(m);
+/** A pin good enough to rank by distance but not to navigate to (the centre of a PIN code or an area). */
+export const isApproximatePin = (m: MosqueVenue) => hasCoords(m) && !!m.pinPrecision && m.pinPrecision !== "venue";
 
 export function buildGoogleMapsUrl(m: MosqueVenue): string {
-  const q = hasCoords(m) ? `${m.latitude},${m.longitude}` : `${m.name}, ${m.address}`;
+  // an approximate pin would send people to the middle of a neighbourhood, so search the venue itself instead
+  const q = hasCoords(m) && !isApproximatePin(m) ? `${m.latitude},${m.longitude}` : `${m.name}, ${m.address}`;
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
 }
 

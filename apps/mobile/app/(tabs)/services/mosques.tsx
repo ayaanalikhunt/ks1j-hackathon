@@ -7,6 +7,7 @@ import {
   extractMosqueQuery,
   findNearbyShiaMosques,
   hasVerifiedPin,
+  isApproximatePin,
   isFriday,
   searchFriday,
   searchMosques,
@@ -38,8 +39,9 @@ function Venue({ m, km }: { m: MosqueVenue; km?: number | null }) {
       <Body>{t(`mq.j.${m.jummahStatus}` as "mq.j.YES")}</Body>
       {m.jummahSchedules?.filter((s) => s.status === "VERIFIED").map((s) => <Body key={s.time} bold>{t("mq.fridayAt", { time: s.time })}</Body>)}
       {m.phone ? <Btn quiet label={m.phone} onPress={() => Linking.openURL(`tel:${m.phone!.replace(/\s+/g, "")}`)} /> : null}
-      <Btn label={pin ? t("mq.openMaps") : t("mq.searchAddress")} onPress={() => Linking.openURL(buildGoogleMapsUrl(m))} />
+      <Btn label={pin && !isApproximatePin(m) ? t("mq.openMaps") : t("mq.searchAddress")} onPress={() => Linking.openURL(buildGoogleMapsUrl(m))} />
       {!pin && <Body muted>{t("mq.pinUnchecked")}</Body>}
+      {pin && isApproximatePin(m) ? <Body muted>{t("mq.approxPin")}</Body> : null}
     </Card>
   );
 }

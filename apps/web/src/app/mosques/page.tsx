@@ -8,6 +8,7 @@ import {
   extractMosqueQuery,
   findNearbyShiaMosques,
   hasVerifiedPin,
+  isApproximatePin,
   isFriday,
   searchFriday,
   searchMosques,
@@ -76,13 +77,14 @@ function VenueCard({ m, distanceKm }: { m: MosqueVenue; distanceKm?: number | nu
       )}
       <div className="mt-3 flex flex-wrap gap-2">
         <a href={buildGoogleMapsUrl(m)} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-12 items-center rounded-xl bg-brand px-5 font-semibold text-[var(--bg)]">
-          {pin ? "Open in Maps" : "Search this address in Maps"}
+          {pin && !isApproximatePin(m) ? "Open in Maps" : "Search this address in Maps"}
         </a>
         <a href={buildAppleMapsUrl(m)} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-12 items-center rounded-xl border border-line px-5 font-semibold">
           Apple Maps
         </a>
       </div>
       {!pin && <p className="mt-2 text-xs text-muted">The exact map pin has not been checked yet, so the map searches by address.</p>}
+      {pin && isApproximatePin(m) && <p className="mt-2 text-xs text-muted">Location is approximate (the {m.pinPrecision === "postcode" ? "PIN code" : "area"} centre), so distances are rough and Maps searches by name and address.</p>}
     </Card>
   );
 }

@@ -37,6 +37,9 @@ export interface MosqueVenue {
   latitude?: number;
   longitude?: number;
   googleMapsUrl?: string;
+  /** Where the pin came from, and how exact it is. "venue" is a checked pin on the building; anything else is approximate. */
+  pinSource?: string;
+  pinPrecision?: "venue" | "postcode" | "area";
   photoUrl?: string;
   jummahStatus: JummahStatus;
   verificationStatus: VerificationStatus;
