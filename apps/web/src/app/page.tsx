@@ -64,7 +64,7 @@ export default function Home() {
             <path d="M100 56v26M100 112l12-12-12-12-12 12Z" />
             <circle cx="100" cy="100" r="3" fill="currentColor" />
           </svg>
-          <div className="relative max-w-2xl">
+          <div className="relative max-w-2xl md:max-w-[33rem]">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#c9a24a]">One Jamaat. One app.</p>
             <h1 className="mt-3 font-display text-4xl font-bold leading-tight sm:text-6xl">Everything from the Jamaat, in one app.</h1>
             <p className="mt-5 text-lg leading-relaxed text-white/80">
