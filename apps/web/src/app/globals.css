@@ -73,3 +73,15 @@ body {
 }
 /* Money and counts: lining, evenly spaced figures in the body font (Playfair figures look uneven). */
 .num { font-variant-numeric: lining-nums tabular-nums; font-weight: 600; font-family: var(--font-sans); }
+
+/* Scroll reveal. Boxes spawn in place (fade + slight grow) as they scroll into view. Visible by default: only hidden
+   once the head script has confirmed IntersectionObserver, and never for people who prefer reduced motion. */
+html.js-reveal .reveal {
+  opacity: 0;
+  transform: scale(0.94);
+  transition: opacity 0.35s ease, transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+html.js-reveal .reveal.is-in {
+  opacity: 1;
+  transform: none;
+}

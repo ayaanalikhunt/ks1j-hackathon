@@ -1,7 +1,7 @@
 import { addDoc, collection, doc, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { useState } from "react";
 import { View } from "react-native";
-import { LOAN_STATUS_LABELS, formatRupees, minEmi } from "@ks1j/shared";
+import { LOAN_STATUS_LABELS, formatRupees, isoToDmy, minEmi } from "@ks1j/shared";
 import { ProofSlot } from "@/components/ProofSlot";
 import { RequireAuth } from "@/components/RequireAuth";
 import { Banner, Body, Btn, Card, Chip, Field, Heading, Screen } from "@/components/ui";
@@ -11,7 +11,7 @@ import { useCollection } from "@/lib/firestore";
 import type { ProofPhoto } from "@/lib/photo";
 
 const num = (s: string) => Math.max(0, Math.trunc(Number(s) || 0));
-const nice = (d?: string) => (d ? new Date(d + "T00:00:00Z").toLocaleDateString("en-IN", { timeZone: "UTC", day: "numeric", month: "short", year: "numeric" }) : "");
+const nice = (d?: string) => isoToDmy(d);
 
 /** Asking for a pause or a lower monthly amount. Reminders stop until a trustee decides. */
 function Hardship({ loan, onDone }: { loan: any; onDone: (m: string) => void }) {

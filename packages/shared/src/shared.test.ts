@@ -3,6 +3,12 @@ import {
   canApprove,
   computeFlags,
   csvRow,
+  formatDate,
+  formatDateTime,
+  formatTime,
+  isoToDmy,
+  parseDmy,
+  todayIso,
   daysBetween,
   firstEmiDate,
   followUp,
@@ -141,5 +147,36 @@ describe("education loans", () => {
     expect(requiredChecks(true)).toHaveLength(9);
     expect(requiredLoanDocs(true)).toEqual(expect.arrayContaining(["death_certificate", "guardian_id"]));
     expect(requiredLoanDocs(false)).not.toContain("death_certificate");
+  });
+});
+
+describe("dates: DD/MM/YYYY and a 12-hour clock in IST", () => {
+  it("formats an instant in India time", () => {
+    const d = new Date("2026-10-04T12:12:00Z"); // 5:42 pm IST
+    expect(formatDate(d)).toBe("04/10/2026");
+    expect(formatTime(d)).toBe("5:42 pm");
+    expect(formatDateTime(d)).toBe("04/10/2026, 5:42 pm");
+  });
+  it("rolls into the next day when IST is past midnight, and uses 12 for noon and midnight", () => {
+    expect(formatDate(new Date("2026-10-04T19:00:00Z"))).toBe("05/10/2026");
+    expect(formatTime(new Date("2026-10-04T18:30:00Z"))).toBe("12:00 am");
+    expect(formatTime(new Date("2026-10-04T06:30:00Z"))).toBe("12:00 pm");
+    expect(formatTime(new Date("2026-10-04T03:50:00Z"))).toBe("9:20 am");
+  });
+  it("accepts Firestore-style timestamps and empty values", () => {
+    expect(formatDate({ seconds: Date.UTC(2026, 0, 5, 10) / 1000 })).toBe("05/01/2026");
+    expect(formatDate({ toDate: () => new Date("2026-01-05T10:00:00Z") })).toBe("05/01/2026");
+    expect(formatDateTime(null)).toBe("");
+  });
+  it("converts calendar dates both ways and rejects impossible ones", () => {
+    expect(isoToDmy("2028-04-01")).toBe("01/04/2028");
+    expect(isoToDmy("")).toBe("");
+    expect(parseDmy("01/04/2028")).toBe("2028-04-01");
+    expect(parseDmy("1/4/2028")).toBe("2028-04-01");
+    expect(parseDmy("29-02-2028")).toBe("2028-02-29");
+    expect(parseDmy("29/02/2027")).toBeNull();
+    expect(parseDmy("31/04/2026")).toBeNull();
+    expect(parseDmy("2028-04-01")).toBeNull();
+    expect(todayIso(new Date("2026-10-04T19:00:00Z"))).toBe("2026-10-05");
   });
 });

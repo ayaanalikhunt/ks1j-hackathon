@@ -12,7 +12,10 @@ import {
   LOAN_STATUS_LABELS,
   PARENT_STATUS_LABELS,
   firstEmiDate,
+  formatDate,
   formatRupees,
+  isoToDmy,
+  parseDmy,
   isAdminLike,
   isStaff,
   minEmi,
@@ -194,8 +197,8 @@ function Review() {
             <Row k="Student" v={loan.studentName} />
             <Row k="Course" v={loan.course} />
             <Row k="School or college" v={loan.institution} />
-            <Row k="Course ends" v={loan.courseEnd} />
-            <Row k="First instalment (six months later)" v={loan.courseEnd ? firstEmiDate(loan.courseEnd) : ""} />
+            <Row k="Course ends" v={isoToDmy(loan.courseEnd)} />
+            <Row k="First instalment (six months later)" v={loan.courseEnd ? isoToDmy(firstEmiDate(loan.courseEnd)) : ""} />
             <Row k="Loan amount" v={formatRupees(loan.principal)} />
             <Row k="Smallest monthly amount" v={formatRupees(min)} />
             <p className="mt-2 whitespace-pre-wrap text-muted">{loan.purpose}</p>
@@ -276,7 +279,7 @@ function Review() {
                     <p className="font-medium">{c ? "✓ " : ""}{CHECK_LABELS[k]}</p>
                     {c ? (
                       <p className="text-sm text-muted">
-                        {nameOf(c.by)} · {c.at ? c.at.toDate().toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric" }) : "just now"}
+                        {nameOf(c.by)} · {c.at ? formatDate(c.at.toDate()) : "just now"}
                         {k === "home_visit" && c.report ? <span className="block whitespace-pre-wrap text-fg">{c.report}{c.recommend === false ? " (Does not recommend the loan.)" : ""}</span> : null}
                       </p>
                     ) : applying && k !== "home_visit" ? (
@@ -284,7 +287,7 @@ function Review() {
                     ) : null}
                     {!c && applying && k === "home_visit" && (
                       <div className="mt-2 space-y-2">
-                        <Field label="Date of the visit (YYYY-MM-DD)" value={visit.date} onChange={(e) => setVisit((v) => ({ ...v, date: e.target.value }))} />
+                        <Field label="Date of the visit (DD/MM/YYYY)" value={visit.date} onChange={(e) => setVisit((v) => ({ ...v, date: e.target.value }))} />
                         <label className="block">
                           <span className="mb-1 block text-sm font-medium">Written report (at least 20 characters)</span>
                           <textarea className="min-h-24 w-full rounded-xl border border-line bg-bg p-3" value={visit.report} onChange={(e) => setVisit((v) => ({ ...v, report: e.target.value }))} />
@@ -293,7 +296,7 @@ function Review() {
                           <input type="checkbox" checked={visit.recommend} onChange={(e) => setVisit((v) => ({ ...v, recommend: e.target.checked }))} />
                           I recommend this loan
                         </label>
-                        <Button disabled={busy || visit.report.trim().length < 20 || !/^\d{4}-\d{2}-\d{2}$/.test(visit.date)} onClick={() => tick("home_visit", { date: visit.date, report: visit.report.trim(), recommend: visit.recommend })}>
+                        <Button disabled={busy || visit.report.trim().length < 20 || !parseDmy(visit.date)} onClick={() => tick("home_visit", { date: parseDmy(visit.date), report: visit.report.trim(), recommend: visit.recommend })}>
                           Record the home visit
                         </Button>
                       </div>
@@ -355,7 +358,7 @@ function Review() {
                 <Row k="Monthly amount" v={formatRupees(loan.emi ?? 0)} />
                 <Row k="Repaid so far" v={formatRupees(loan.repaid ?? 0)} />
                 <Row k="Left to repay" v={formatRupees(loan.principal - (loan.repaid ?? 0))} />
-                <Row k="Next instalment" v={loan.nextDue ?? "None"} />
+                <Row k="Next instalment" v={loan.nextDue ? isoToDmy(loan.nextDue) : "None"} />
               </div>
             )}
 

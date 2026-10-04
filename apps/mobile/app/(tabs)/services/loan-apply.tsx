@@ -11,6 +11,8 @@ import {
   minEmi,
   requiredLoanDocs,
   firstEmiDate,
+  isoToDmy,
+  parseDmy,
   type LoanDocKind,
   type ParentStatus,
 } from "@ks1j/shared";
@@ -54,7 +56,8 @@ export default function LoanApply() {
 
   const principal = num(f.principal);
   const needed = requiredLoanDocs(orphan);
-  const dateOk = /^\d{4}-\d{2}-\d{2}$/.test(f.courseEnd);
+  const courseEndIso = parseDmy(f.courseEnd);
+  const dateOk = courseEndIso !== null;
   const refsOk = !orphan || refs.every((r) => r.name.trim() && r.phone.trim().length >= 8 && r.relation.trim());
   const guardianOk = !orphan || (f.guardianName.trim() && f.guardianRelation.trim() && f.guardianPhone.trim().length >= 8 && f.guardianAddress.trim());
   const ready =
@@ -72,7 +75,7 @@ export default function LoanApply() {
         studentName: f.studentName.trim(),
         course: f.course.trim(),
         institution: f.institution.trim(),
-        courseEnd: f.courseEnd,
+        courseEnd: courseEndIso,
         principal,
         purpose: f.purpose.trim(),
         orphan,
@@ -117,13 +120,13 @@ export default function LoanApply() {
         <Field label="Student's full name" value={f.studentName} onChangeText={set("studentName")} autoCapitalize="words" />
         <Field label="Course" value={f.course} onChangeText={set("course")} />
         <Field label="School or college" value={f.institution} onChangeText={set("institution")} />
-        <Field label="Course ends on (YYYY-MM-DD)" value={f.courseEnd} onChangeText={set("courseEnd")} placeholder="2027-10-01" />
+        <Field label="Course ends on (DD/MM/YYYY)" value={f.courseEnd} onChangeText={set("courseEnd")} placeholder="01/10/2027" />
         <Field label="Loan amount needed (₹)" value={f.principal} onChangeText={set("principal")} keyboardType="number-pad" />
         <Field label="What will the money pay for?" value={f.purpose} onChangeText={set("purpose")} multiline />
         {principal > 0 && (
           <Banner>
             The smallest monthly amount is {formatRupees(minEmi(principal))} (the loan spread over 48 months).
-            {dateOk ? ` Your first instalment would be on ${firstEmiDate(f.courseEnd)}.` : ""}
+            {dateOk ? ` Your first instalment would be on ${isoToDmy(firstEmiDate(courseEndIso!))}.` : ""}
           </Banner>
         )}
 

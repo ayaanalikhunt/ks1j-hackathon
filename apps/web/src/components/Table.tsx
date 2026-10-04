@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import type { Row } from "@/lib/useCollection";
 import { Banner } from "./ui";
+import { useReveal } from "./useReveal";
 
 export interface Col<T> {
   head: string;
@@ -21,10 +22,11 @@ export function Table<T>({
   empty?: string;
   error?: string | null;
 }) {
+  const ref = useReveal<HTMLDivElement>();
   if (error) return <Banner kind="error">{error}</Banner>;
   if (rows.length === 0) return <Banner>{empty}</Banner>;
   return (
-    <div className="overflow-x-auto rounded-2xl border border-line bg-card shadow-soft">
+    <div ref={ref} className="reveal overflow-x-auto rounded-2xl border border-line bg-card shadow-soft">
       <table className="w-full text-left text-sm">
         <thead>
           <tr className="border-b border-line text-muted">

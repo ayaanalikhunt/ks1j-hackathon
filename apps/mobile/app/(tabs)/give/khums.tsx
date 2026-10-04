@@ -1,7 +1,7 @@
 import { addDoc, collection, serverTimestamp, where } from "firebase/firestore";
 import { router } from "expo-router";
 import { useState } from "react";
-import { KHUMS_DISCLAIMER, formatRupees, khumsDue, khumsSplit } from "@ks1j/shared";
+import { KHUMS_DISCLAIMER, formatRupees, isoToDmy, khumsDue, khumsSplit, parseDmy } from "@ks1j/shared";
 import { RequireAuth } from "@/components/RequireAuth";
 import { Banner, Body, Btn, Card, Field, Heading, Screen } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
@@ -21,7 +21,8 @@ export default function Khums() {
   const valid = savings !== "" && Number.isFinite(n) && n >= 0;
   const due = valid ? khumsDue(n) : 0;
   const split = khumsSplit(due);
-  const okDate = /^\d{4}-\d{2}-\d{2}$/.test(yearEnd);
+  const isoEnd = parseDmy(yearEnd);
+  const okDate = isoEnd !== null;
 
   // The latest saved calculation, and what has been paid since it was saved.
   const latest = [...saved.rows].sort((a, b) => (b.createdAt?.seconds ?? 9e9) - (a.createdAt?.seconds ?? 9e9))[0];
@@ -36,7 +37,7 @@ export default function Khums() {
     try {
       await addDoc(collection(db, "khumsCalculations"), {
         memberId: uid,
-        yearEnd,
+        yearEnd: isoEnd,
         surplus: n,
         due,
         imam: split.imam,
@@ -56,7 +57,7 @@ export default function Khums() {
         title="Khums calculator"
         intro="Enter what is left in savings at your Khums year-end. Khums is one fifth, shared equally between Sehme Imam and Sehme Sadaat."
       >
-        <Field label="Your Khums year-end (YYYY-MM-DD)" value={yearEnd} onChangeText={setYearEnd} placeholder="2026-09-30" />
+        <Field label="Your Khums year-end (DD/MM/YYYY)" value={yearEnd} onChangeText={setYearEnd} placeholder="30/09/2026" />
         <Field label="Savings left at year-end (₹)" value={savings} onChangeText={setSavings} keyboardType="number-pad" />
         {valid && (
           <Card>
@@ -74,7 +75,7 @@ export default function Khums() {
           <>
             <Heading>What is left to pay</Heading>
             <Card>
-              <Body muted>From your calculation for the year ending {latest.yearEnd}</Body>
+              <Body muted>From your calculation for the year ending {isoToDmy(latest.yearEnd)}</Body>
               <Body>
                 Sehme Imam left: {formatRupees(left.imam)} of {formatRupees(latest.imam ?? 0)}
               </Body>

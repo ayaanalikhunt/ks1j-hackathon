@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from "react";
+import { useReveal } from "./useReveal";
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <div className={`min-w-0 rounded-2xl border border-line bg-card p-4 shadow-soft sm:p-6 ${className}`}>{children}</div>;
+  const ref = useReveal<HTMLDivElement>();
+  return <div ref={ref} className={`reveal min-w-0 rounded-2xl border border-line bg-card p-4 shadow-soft sm:p-6 ${className}`}>{children}</div>;
 }
 
 export function PageHeader({ eyebrow, title, intro }: { eyebrow: string; title: string; intro?: string }) {

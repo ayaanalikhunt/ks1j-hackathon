@@ -1,6 +1,6 @@
 import { where } from "firebase/firestore";
 import { Share } from "react-native";
-import { FUND_LABELS, formatRupees } from "@ks1j/shared";
+import { FUND_LABELS, formatDateTime, formatRupees } from "@ks1j/shared";
 import { RequireAuth } from "@/components/RequireAuth";
 import { Banner, Body, Btn, Card, Screen } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
@@ -14,7 +14,7 @@ interface Receipt {
   at: number;
 }
 
-const dateOf = (s?: { seconds: number }) => (s ? new Date(s.seconds * 1000).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric" }) : "");
+const dateOf = (s?: { seconds: number }) => formatDateTime(s);
 
 export default function Receipts() {
   const { user, member } = useAuth();

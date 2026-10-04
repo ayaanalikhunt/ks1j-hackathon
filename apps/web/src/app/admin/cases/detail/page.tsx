@@ -28,6 +28,7 @@ import {
   MIN_DECLINE_NOTE,
   STAFF_EVENT_TEXT,
   canApprove,
+  formatDateTime,
   formatRupees,
   isAdminLike,
   isStaff,
@@ -322,7 +323,7 @@ function Review() {
                 {events.map((e) => (
                   <li key={e.id} className="border-l-2 border-brand pl-3 text-sm">
                     <span className="font-semibold">{STAFF_EVENT_TEXT[e.kind] ?? e.kind}</span>
-                    <span className="text-muted"> · {nameOf(e.actorId)} · {e.at ? e.at.toDate().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) : "just now"}</span>
+                    <span className="text-muted"> · {nameOf(e.actorId)} · {e.at ? formatDateTime(e.at.toDate()) : "just now"}</span>
                     {e.note && <p className="text-muted">{e.note}</p>}
                   </li>
                 ))}

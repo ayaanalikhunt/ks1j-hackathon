@@ -25,7 +25,10 @@
       "output": "static",
       "favicon": "./assets/favicon.png"
     },
-    "scheme": "ks1j",
+    "scheme": [
+      "ks1j",
+      "com.googleusercontent.apps.874901866220-s5of9flkm468fq0fc717k4e8loc14stn"
+    ],
     "plugins": [
       "expo-router",
       "expo-font",
@@ -43,7 +46,8 @@
           "photosPermission": "KS1J uses your photos only to attach proof documents to your application.",
           "cameraPermission": "KS1J uses the camera only to photograph proof documents for your application."
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "baseUrl": "/member"

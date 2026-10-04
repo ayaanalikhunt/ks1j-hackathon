@@ -2,7 +2,7 @@
 
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { useState } from "react";
-import { FUND_LABELS, FUND_TYPES, KHUMS_DISCLAIMER, formatRupees, isAdminLike, toCsv } from "@ks1j/shared";
+import { FUND_LABELS, FUND_TYPES, KHUMS_DISCLAIMER, formatDate, formatRupees, isAdminLike, isoToDmy, toCsv } from "@ks1j/shared";
 import { Table } from "@/components/Table";
 import { Banner, Button, Card, Field, PageHeader } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
@@ -47,7 +47,7 @@ const KIND_LABELS: Record<string, string> = {
   payout: "Paid out to a case",
   handover: "Handed over to an institution",
 };
-const when = (d?: { toDate(): Date } | null) => (d ? d.toDate().toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric" }) : "");
+const when = (d?: { toDate(): Date } | null) => (d ? formatDate(d.toDate()) : "");
 
 export default function KhumsAndLedgers() {
   const { member } = useAuth();
@@ -188,7 +188,7 @@ export default function KhumsAndLedgers() {
         error={calcs.error}
         empty="No one has saved a Khums calculation yet."
         cols={[
-          { head: "Year-end", cell: (r) => r.yearEnd ?? "" },
+          { head: "Year-end", cell: (r) => isoToDmy(r.yearEnd) },
           { head: "Savings", cell: (r) => formatRupees(r.surplus) },
           { head: "Khums due", cell: (r) => formatRupees(r.due) },
         ]}

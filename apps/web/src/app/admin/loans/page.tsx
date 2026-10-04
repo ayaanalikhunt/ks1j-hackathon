@@ -8,6 +8,8 @@ import {
   LOAN_STATUS_LABELS,
   followUp,
   formatRupees,
+  isoToDmy,
+  todayIso,
   toCsv,
 } from "@ks1j/shared";
 import { Table } from "@/components/Table";
@@ -42,9 +44,8 @@ interface Hardship {
 }
 
 const decide = httpsCallable(getFunctions(auth.app, "asia-south1"), "decideHardship");
-// Today in India, as YYYY-MM-DD.
-const today = () => new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10);
-const nice = (d?: string) => (d ? new Date(d + "T00:00:00Z").toLocaleDateString("en-IN", { timeZone: "UTC", day: "numeric", month: "short", year: "numeric" }) : "");
+const today = () => todayIso();
+const nice = (d?: string) => isoToDmy(d);
 
 export default function AdminLoans() {
   const loans = useCollection<Loan>("loans");

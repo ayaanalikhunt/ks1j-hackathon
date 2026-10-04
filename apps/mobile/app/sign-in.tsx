@@ -1,16 +1,26 @@
 import { router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Banner, Btn, Chip, Field, Screen } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
+import { useGoogleSignIn } from "@/lib/googleAuth";
 
 export default function SignIn() {
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, user } = useAuth();
+  const g = useGoogleSignIn();
   const [mode, setMode] = useState<"in" | "up">("in");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // Signing in with Google ends here, once Firebase has the member.
+  useEffect(() => {
+    if (user) {
+      router.dismissAll?.();
+      router.replace("/");
+    }
+  }, [user]);
 
   async function go() {
     setErr(null);
@@ -34,6 +44,7 @@ export default function SignIn() {
       <Field label="Password" value={password} onChangeText={setPassword} secureTextEntry />
       {err && <Banner error>{err}</Banner>}
       <Btn label={mode === "in" ? "Sign in" : "Create account"} onPress={go} disabled={busy || !email || !password || (mode === "up" && !name)} />
+      <Btn quiet label="Continue with Google" onPress={() => g.signIn((e) => setErr(e.message))} disabled={!g.ready || busy} />
       <Chip label={mode === "in" ? "New here? Create an account" : "Have an account? Sign in"} onPress={() => setMode(mode === "in" ? "up" : "in")} />
     </Screen>
   );

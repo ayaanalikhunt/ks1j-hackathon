@@ -1,8 +1,8 @@
 import type { IconName } from "@ks1j/shared";
 import { Icon } from "./Icon";
 import { Link, type Href } from "expo-router";
-import type { ReactNode } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps } from "react-native";
+import { createContext, useContext, useEffect, useRef, type ReactNode } from "react";
+import { AccessibilityInfo, Animated, Dimensions, Easing, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { BODY, D, F, cardShadow } from "@/constants/Type";
 import { useTheme } from "@/lib/theme";
@@ -33,6 +33,85 @@ function HeroHeader({ eyebrow, title, intro }: { eyebrow: string; title: string;
   );
 }
 
+// ---- Scroll reveal: each box "spawns" in place (fade and a slight grow, no sliding) the first time it scrolls into view ----
+interface RevealApi {
+  bottom: { current: number };
+  subscribe: (fn: (bottom: number) => void) => () => void;
+}
+const RevealCtx = createContext<RevealApi | null>(null);
+
+/** A scroll view that tells its boxes how far down the visible area reaches. */
+function RevealScroll({ children }: { children: ReactNode }) {
+  const t = useTheme();
+  const bottom = useRef(Dimensions.get("window").height);
+  const subs = useRef(new Set<(b: number) => void>());
+  const api = useRef<RevealApi>({
+    bottom,
+    subscribe: (fn) => {
+      subs.current.add(fn);
+      return () => {
+        subs.current.delete(fn);
+      };
+    },
+  }).current;
+  const move = (b: number) => {
+    bottom.current = Math.max(bottom.current, b);
+    subs.current.forEach((fn) => fn(bottom.current));
+  };
+  return (
+    <RevealCtx.Provider value={api}>
+      <ScrollView
+        style={{ backgroundColor: t.bg }}
+        contentContainerStyle={{ padding: 16, gap: 12 }}
+        keyboardShouldPersistTaps="handled"
+        scrollEventThrottle={16}
+        onLayout={(e) => move(e.nativeEvent.layout.height)}
+        onScroll={(e) => move(e.nativeEvent.contentOffset.y + e.nativeEvent.layoutMeasurement.height)}
+      >
+        {children}
+      </ScrollView>
+    </RevealCtx.Provider>
+  );
+}
+
+function Reveal({ children }: { children: ReactNode }) {
+  const ctx = useContext(RevealCtx);
+  const v = useRef(new Animated.Value(ctx ? 0 : 1)).current;
+  const top = useRef<number | null>(null);
+  const shown = useRef(!ctx);
+  const reduce = useRef(false);
+
+  const show = () => {
+    if (shown.current) return;
+    shown.current = true;
+    if (reduce.current) v.setValue(1);
+    else Animated.timing(v, { toValue: 1, duration: 340, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+  };
+  const check = (bottom: number) => {
+    if (top.current !== null && top.current < bottom - 24) show();
+  };
+
+  useEffect(() => {
+    AccessibilityInfo.isReduceMotionEnabled().then((on) => {
+      reduce.current = on;
+    });
+    return ctx?.subscribe(check);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ctx]);
+
+  return (
+    <Animated.View
+      onLayout={(e) => {
+        top.current = e.nativeEvent.layout.y;
+        if (ctx) check(ctx.bottom.current);
+      }}
+      style={{ opacity: v, transform: [{ scale: v.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) }] }}
+    >
+      {children}
+    </Animated.View>
+  );
+}
+
 /** Every screen renders inside this: a header card with eyebrow, serif title, gold rule, intro. `hero` is the green banner. */
 export function Screen({
   eyebrow,
@@ -50,13 +129,13 @@ export function Screen({
   const t = useTheme();
   if (hero)
     return (
-      <ScrollView style={{ backgroundColor: t.bg }} contentContainerStyle={{ padding: 16, gap: 12 }} keyboardShouldPersistTaps="handled">
+      <RevealScroll>
         <HeroHeader eyebrow={eyebrow} title={title} intro={intro} />
         {children}
-      </ScrollView>
+      </RevealScroll>
     );
   return (
-    <ScrollView style={{ backgroundColor: t.bg }} contentContainerStyle={{ padding: 16, gap: 12 }} keyboardShouldPersistTaps="handled">
+    <RevealScroll>
       <View style={[s.header, cardShadow, { backgroundColor: t.card, borderColor: t.border }]}>
         <Text style={[s.eyebrow, { color: t.tint }]}>{eyebrow.toUpperCase()}</Text>
         <Text style={[s.title, { color: t.text }]}>{title}</Text>
@@ -64,13 +143,17 @@ export function Screen({
         {intro ? <Text style={[s.body, { color: t.muted }]}>{intro}</Text> : null}
       </View>
       {children}
-    </ScrollView>
+    </RevealScroll>
   );
 }
 
 export function Card({ children }: { children: ReactNode }) {
   const t = useTheme();
-  return <View style={[s.card, cardShadow, { backgroundColor: t.card, borderColor: t.border }]}>{children}</View>;
+  return (
+    <Reveal>
+      <View style={[s.card, cardShadow, { backgroundColor: t.card, borderColor: t.border }]}>{children}</View>
+    </Reveal>
+  );
 }
 
 export function Body({ children, muted, bold }: { children: ReactNode; muted?: boolean; bold?: boolean }) {
@@ -122,12 +205,16 @@ export function FeatureCard({
       <Icon name="chevron-right" size={22} color={t.muted} />
     </Pressable>
   );
-  return href ? (
-    <Link href={href} asChild>
-      {inner}
-    </Link>
-  ) : (
-    inner
+  return (
+    <Reveal>
+      {href ? (
+        <Link href={href} asChild>
+          {inner}
+        </Link>
+      ) : (
+        inner
+      )}
+    </Reveal>
   );
 }
 
@@ -188,9 +275,11 @@ export function Chip({ label, on, onPress }: { label: string; on?: boolean; onPr
 export function Banner({ children, error }: { children: ReactNode; error?: boolean }) {
   const t = useTheme();
   return (
-    <View style={[s.banner, { borderColor: error ? t.danger : t.border, backgroundColor: t.card }]}>
-      <Text style={{ fontSize: BODY, fontFamily: F.regular, color: error ? t.danger : t.muted }}>{children}</Text>
-    </View>
+    <Reveal>
+      <View style={[s.banner, { borderColor: error ? t.danger : t.border, backgroundColor: t.card }]}>
+        <Text style={{ fontSize: BODY, fontFamily: F.regular, color: error ? t.danger : t.muted }}>{children}</Text>
+      </View>
+    </Reveal>
   );
 }
 

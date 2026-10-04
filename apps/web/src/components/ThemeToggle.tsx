@@ -1,6 +1,6 @@
 "use client";
 
-export const themeScript = `(function(){try{var t=localStorage.getItem("ks1j-theme");if(t){document.documentElement.setAttribute("data-theme",t)}}catch(e){}})();`;
+export const themeScript = `(function(){try{var t=localStorage.getItem("ks1j-theme");if(t){document.documentElement.setAttribute("data-theme",t)}}catch(e){}try{if("IntersectionObserver" in window&&!window.matchMedia("(prefers-reduced-motion: reduce)").matches){document.documentElement.classList.add("js-reveal")}}catch(e){}})();`;
 
 export function ThemeToggle() {
   function toggle() {
