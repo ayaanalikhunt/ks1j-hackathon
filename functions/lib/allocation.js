@@ -47,7 +47,7 @@ function reconcileDonation(donation, allocations) {
 }
 
 /** Public totals. Only sums and counts: no donor and no beneficiary is named here. */
-function summarize({ donations, allocations, cases }) {
+function summarize({ donations, allocations, cases, loans = [] }) {
   const paid = donations.filter((d) => d.status === "paid");
   const sum = (rows, f) => rows.reduce((s, r) => s + (f(r) ?? 0), 0);
   const assisted = new Set(allocations.filter((a) => ACTIVE(a) && (a.disbursedAmount ?? 0) > 0 && a.caseId).map((a) => a.caseId));
@@ -61,6 +61,10 @@ function summarize({ donations, allocations, cases }) {
     casesCompleted: count("disbursed", "closed"),
     casesFunding: count("published"),
     casesUnderReview: count("submitted", "verified", "approved"),
+    // loans are counted apart from donations, and only once paid out
+    loansLent: sum(loans.filter((l) => ["disbursed", "repaying", "closed"].includes(l.status)), (l) => l.principal),
+    loansRepaid: sum(loans.filter((l) => ["disbursed", "repaying", "closed"].includes(l.status)), (l) => Math.min(l.repaid ?? 0, l.principal ?? 0)),
+    loansActive: loans.filter((l) => ["disbursed", "repaying"].includes(l.status)).length,
   };
 }
 

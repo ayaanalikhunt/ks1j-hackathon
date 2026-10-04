@@ -246,6 +246,15 @@ service cloud.firestore {
       allow read: if isStaff();
       allow write: if false;
     }
+    // Reminders sent, and the follow-ups a person should make. Written only by the daily loan reminder run.
+    match /loanReminders/{id} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+    match /loanFollowUps/{id} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
     match /handovers/{id} {
       allow read: if isStaff();
       allow write: if false;

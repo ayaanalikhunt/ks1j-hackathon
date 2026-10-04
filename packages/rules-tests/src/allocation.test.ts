@@ -58,7 +58,7 @@ describe("allocation rules (pure)", () => {
       allocations: [{ status: "allocated", caseId: "c1", disbursedAmount: 200 }, { status: "reversed", caseId: "c2", disbursedAmount: 0 }],
       cases: [{ status: "published" }, { status: "closed" }, { status: "submitted" }],
     });
-    expect(s).toEqual({ totalDonated: 1000, totalAllocated: 600, totalDisbursed: 200, donationCount: 1, casesAssisted: 1, casesCompleted: 1, casesFunding: 1, casesUnderReview: 1 });
+    expect(s).toEqual({ totalDonated: 1000, totalAllocated: 600, totalDisbursed: 200, donationCount: 1, casesAssisted: 1, casesCompleted: 1, casesFunding: 1, casesUnderReview: 1, loansLent: 0, loansRepaid: 0, loansActive: 0 });
   });
 });
 

@@ -30,7 +30,21 @@ interface Totals {
   casesCompleted: number;
   casesFunding: number;
   casesUnderReview: number;
+  loansLent?: number;
+  loansRepaid?: number;
+  loansActive?: number;
 }
+
+interface PublicLoanRow {
+  reference: string;
+  purpose: string;
+  statusLabel: string;
+  approved: number;
+  disbursed: number;
+  repaid: number;
+  outstanding: number;
+}
+const listLoans = httpsCallable<unknown, { loans: PublicLoanRow[] }>(getFunctions(auth.app, "asia-south1"), "listPublicLoans");
 
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
@@ -47,6 +61,10 @@ export default function Transparency() {
   const [recent, setRecent] = useState<RecentCase[] | null>(null);
   useEffect(() => {
     listCases({}).then((r) => setRecent(r.data.cases)).catch(() => setRecent([]));
+  }, []);
+  const [loans, setLoans] = useState<PublicLoanRow[] | null>(null);
+  useEffect(() => {
+    listLoans({}).then((r) => setLoans(r.data.loans)).catch(() => setLoans([]));
   }, []);
   const unallocated = t ? t.totalDonated - t.totalAllocated : 0;
   return (
@@ -89,6 +107,28 @@ export default function Transparency() {
                 <h3 className="mt-1 text-lg">{(c.needCategory && NEED_CATEGORIES[c.needCategory]) || CASE_TYPE_LABELS[c.type as CaseType] || "Assistance"}</h3>
                 <p className="num mt-1">{formatRupees(c.raised)} <span className="font-normal text-muted">of {formatRupees(c.requested)} raised</span></p>
                 <p className="text-sm text-muted">{formatRupees(c.disbursed)} paid out · {CASE_STATUS_LABELS[c.status] ?? c.status}</p>
+              </Card>
+            </Link>
+          ))}
+        </div>
+        <h2 className="mb-1 mt-10 font-display text-2xl">Education loans</h2>
+        <p className="mb-3 text-sm text-muted">Loans are repaid, so they are shown apart from donations. No interest, no late fees, and no borrower is named.</p>
+        {t && (
+          <div className="mb-3 grid gap-3 sm:grid-cols-3">
+            <Stat label="Lent" value={formatRupees(t.loansLent ?? 0)} />
+            <Stat label="Repaid so far" value={formatRupees(t.loansRepaid ?? 0)} />
+            <Stat label="Active loans" value={t.loansActive ?? 0} />
+          </div>
+        )}
+        {loans && loans.length === 0 && <Banner>No loans have been paid out yet.</Banner>}
+        <div className="grid gap-3 sm:grid-cols-2">
+          {(loans ?? []).map((l) => (
+            <Link key={l.reference} href={`/loans/public?ref=${l.reference}`}>
+              <Card className="h-full">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand">{l.reference}</p>
+                <h3 className="mt-1 text-lg">{l.purpose} loan</h3>
+                <p className="num mt-1">{formatRupees(l.approved)} <span className="font-normal text-muted">approved and paid out</span></p>
+                <p className="text-sm text-muted">{formatRupees(l.repaid)} repaid · {l.statusLabel}</p>
               </Card>
             </Link>
           ))}

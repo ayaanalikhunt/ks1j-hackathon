@@ -96,10 +96,12 @@ exports.confirmPayment = onCall(REGION, async (req) => {
       tx.update(loanRef, {
         repaid,
         status: repaid >= loan.principal ? "closed" : "repaying",
+        ...(repaid >= loan.principal ? { closedAt: FieldValue.serverTimestamp() } : {}),
         ...(instalments > 0 && loan.nextDue ? { nextDue: addMonths(loan.nextDue, instalments) } : {}),
       });
     }
   });
+  if (kind === "repayment") await require("./lib/transparency").refreshTransparency(db);
   return { ok: true };
 });
 
@@ -178,6 +180,12 @@ exports.recordHandover = onCall(REGION, async (req) => {
  * the first instalment falls six months after the course ends. Only an agreed plan can be paid out.
  */
 exports.disburseLoan = onCall(REGION, async (req) => {
+  const result = await disburseLoanImpl(req);
+  await require("./lib/transparency").refreshTransparency(db);
+  return result;
+});
+
+async function disburseLoanImpl(req) {
   const uid = await requireAdmin(req);
   const { loanId } = req.data ?? {};
   if (typeof loanId !== "string") throw new HttpsError("invalid-argument", "loanId is required.");
@@ -188,6 +196,10 @@ exports.disburseLoan = onCall(REGION, async (req) => {
     const loan = snap.data();
     if (loan.status !== "agreed") throw new HttpsError("failed-precondition", "The monthly amount must be agreed before the payout.");
     if (!loan.emi || !loan.courseEnd) throw new HttpsError("failed-precondition", "The plan is incomplete.");
+    const counter = db.doc("counters/loansPublic");
+    const cs = await tx.get(counter);
+    const publicLoanNumber = (cs.exists ? cs.get("n") : 0) + 1;
+    tx.set(counter, { n: publicLoanNumber });
     tx.create(db.doc(`ledger/loan-${loanId}`), {
       kind: "loan_disbursed",
       direction: "out",
@@ -200,6 +212,8 @@ exports.disburseLoan = onCall(REGION, async (req) => {
     });
     tx.update(ref, {
       status: "disbursed",
+      publicLoanNumber,
+      publicLoanId: require("./lib/publicLoan").publicLoanRef(publicLoanNumber),
       disbursedBy: uid,
       disbursedAt: FieldValue.serverTimestamp(),
       repaid: 0,
@@ -208,7 +222,7 @@ exports.disburseLoan = onCall(REGION, async (req) => {
     });
   });
   return { ok: true };
-});
+}
 
 /**
  * A trustee decides a hardship request. Approving a pause pushes the next due date back; approving a lower amount changes
@@ -248,3 +262,6 @@ Object.assign(exports, require("./publicCase"));
 Object.assign(exports, require("./report"));
 Object.assign(exports, require("./fraud"));
 Object.assign(exports, require("./documents"));
+
+Object.assign(exports, require("./publicLoan"));
+Object.assign(exports, require("./loanReminders"));

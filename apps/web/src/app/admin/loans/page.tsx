@@ -33,6 +33,16 @@ interface Loan {
   guarantorName?: string;
   guarantorPhone?: string;
 }
+interface FollowUpTask {
+  loanRef?: string | null;
+  dueDate: string;
+  daysLate: number;
+  emi: number;
+  left: number;
+  guarantorName?: string | null;
+  guarantorPhone?: string | null;
+  status: string;
+}
 interface Hardship {
   loanId: string;
   type: "pause" | "lower";
@@ -44,12 +54,16 @@ interface Hardship {
 }
 
 const decide = httpsCallable(getFunctions(auth.app, "asia-south1"), "decideHardship");
+const finishFollowUp = httpsCallable(getFunctions(auth.app, "asia-south1"), "completeLoanFollowUp");
+const runReminders = httpsCallable<unknown, { reminders: number; tasks: number; checked: number }>(getFunctions(auth.app, "asia-south1"), "runLoanReminders");
 const today = () => todayIso();
 const nice = (d?: string) => isoToDmy(d);
 
 export default function AdminLoans() {
   const loans = useCollection<Loan>("loans");
   const hardships = useCollection<Hardship>("hardships");
+  const followUps = useCollection<FollowUpTask>("loanFollowUps");
+  const openTasks = followUps.rows.filter((t) => t.status === "open").sort((a, b) => b.daysLate - a.daysLate);
   const [msg, setMsg] = useState<{ error: boolean; text: string } | null>(null);
   const [zoom, setZoom] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -74,6 +88,33 @@ export default function AdminLoans() {
     try {
       await decide({ id, approve });
       setMsg({ error: false, text: approve ? "Approved. The schedule has been updated." : "Declined." });
+    } catch (e) {
+      setMsg({ error: true, text: (e as Error).message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function doneTask(id: string) {
+    const note = window.prompt("What happened? (for example: called the family, they will pay on the 30th)");
+    if (!note) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      await finishFollowUp({ id, note });
+      setMsg({ error: false, text: "Recorded." });
+    } catch (e) {
+      setMsg({ error: true, text: (e as Error).message });
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function sendNow() {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = (await runReminders({})).data;
+      setMsg({ error: false, text: `Checked ${r.checked} loans. ${r.reminders} reminders sent, ${r.tasks} people to reach out to.` });
     } catch (e) {
       setMsg({ error: true, text: (e as Error).message });
     } finally {
@@ -123,7 +164,28 @@ export default function AdminLoans() {
         <h2 className="font-display text-2xl">Follow-up list</h2>
         <Button className="!min-h-10 !px-4" onClick={exportFollowUp} disabled={followRows.length === 0}>Download for Excel</Button>
       </div>
-      <p className="mb-3 text-muted">Reminders go out from the first day late. A person reaches out from 15 days late. Never a penalty.</p>
+      <p className="mb-3 text-muted">
+        Reminders are sent to the borrower in the app every morning at 9 (India time): three days before, on the day, and then on days 1, 7 and 14 late. From 15 days late a person is asked to reach out. They pause while a hardship request waits for a decision. Never a penalty.{" "}
+        <button className="underline" disabled={busy} onClick={sendNow}>Run the reminders now</button>
+      </p>
+      {openTasks.length > 0 && (
+        <div className="mb-4">
+          <h3 className="mb-2 font-semibold">People to reach out to</h3>
+          <Table<FollowUpTask>
+            rows={openTasks}
+            empty="Nobody."
+            cols={[
+              { head: "Loan", cell: (r) => r.loanRef ?? "" },
+              { head: "Due", cell: (r) => nice(r.dueDate) },
+              { head: "Days late", cell: (r) => r.daysLate },
+              { head: "Instalment", cell: (r) => formatRupees(r.emi) },
+              { head: "Left", cell: (r) => formatRupees(r.left) },
+              { head: "Guarantor", cell: (r) => (<span>{r.guarantorName}<span className="block text-xs text-muted">{r.guarantorPhone}</span></span>) },
+              { head: "", cell: (r) => <Button className="!min-h-9 !px-3" disabled={busy} onClick={() => doneTask(r.id)}>I reached out</Button> },
+            ]}
+          />
+        </div>
+      )}
       <div className="mb-8">
         <Table<Loan>
           rows={followRows}

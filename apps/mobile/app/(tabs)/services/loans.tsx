@@ -73,6 +73,12 @@ export default function Loans() {
   const loans = useCollection(user ? "loans" : null, [where("borrowerId", "==", uid)], [uid]);
   const hardships = useCollection(user ? "hardships" : null, [where("borrowerId", "==", uid)], [uid]);
   const repayments = useCollection(user ? "repayments" : null, [where("borrowerId", "==", uid)], [uid]);
+  // Gentle reminders from the committee: three days before, on the day, and if a payment is late. Never a fee.
+  const notes = useCollection(user ? "notifications" : null, [where("userId", "==", uid)], [uid]);
+  const reminders = [...notes.rows]
+    .filter((n) => n.type === "loan_reminder")
+    .sort((a, b) => (b.at?.seconds ?? 9e9) - (a.at?.seconds ?? 9e9))
+    .slice(0, 3);
   const [msg, setMsg] = useState<string | null>(null);
   const [proposal, setProposal] = useState<Record<string, string>>({});
   const [help, setHelp] = useState<string | null>(null);
@@ -91,6 +97,17 @@ export default function Loans() {
       <Screen eyebrow="Services" title="My loans" intro="These are loans you repay, not donations. No interest. No late fees. If you fall behind, a person will reach out kindly.">
         {(loans.error || hardships.error) && <Banner error>{loans.error ?? hardships.error}</Banner>}
         {msg && <Banner>{msg}</Banner>}
+        {reminders.length > 0 && (
+          <>
+            <Heading>Messages</Heading>
+            {reminders.map((n) => (
+              <Card key={n.id}>
+                <Body>{n.text}</Body>
+                {n.at ? <Body muted>{isoToDmy(new Date(n.at.seconds * 1000 + 5.5 * 3600_000).toISOString().slice(0, 10))}</Body> : null}
+              </Card>
+            ))}
+          </>
+        )}
         {loans.rows.length === 0 && <Banner>No loans yet.</Banner>}
         {loans.rows.map((l) => {
           const min = minEmi(l.principal);
