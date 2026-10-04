@@ -17,14 +17,20 @@ const { actionLabel, speak } = require("./lib/ask/strings");
 const db = getFirestore();
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 const OPENAI_API_KEY = defineSecret("OPENAI_API_KEY");
+const GEMINI_API_KEY = defineSecret("GEMINI_API_KEY");
 const ACTION_THRESHOLD = 0.85;
 
-// AI_PROVIDER (functions/.env) picks the model service: "openai" in production, "anthropic" against the local fake in tests.
-// Only that provider's key is attached to the function, so the other secret need not exist.
-const PROVIDER = process.env.AI_PROVIDER === "openai" ? "openai" : "anthropic";
-const KEY = PROVIDER === "openai" ? OPENAI_API_KEY : ANTHROPIC_API_KEY;
-const model = () => process.env.AI_MODEL || (PROVIDER === "openai" ? "gpt-4.1-mini" : "claude-sonnet-5-5");
-const apiBase = () => (PROVIDER === "openai" ? process.env.OPENAI_API_BASE : process.env.ANTHROPIC_API_BASE) || undefined;
+// AI_PROVIDER (functions/.env) picks the model service: "gemini" or "openai" in production, "anthropic" against the local
+// fake in tests. Only that provider's key is attached to the function, so the other secrets need not exist.
+const SETUP = {
+  anthropic: { key: ANTHROPIC_API_KEY, model: "claude-sonnet-5-5", base: "ANTHROPIC_API_BASE" },
+  openai: { key: OPENAI_API_KEY, model: "gpt-4.1-mini", base: "OPENAI_API_BASE" },
+  gemini: { key: GEMINI_API_KEY, model: "gemini-flash-latest", base: "GEMINI_API_BASE" },
+};
+const PROVIDER = SETUP[process.env.AI_PROVIDER] ? process.env.AI_PROVIDER : "anthropic";
+const KEY = SETUP[PROVIDER].key;
+const model = () => process.env.AI_MODEL || SETUP[PROVIDER].model;
+const apiBase = () => process.env[SETUP[PROVIDER].base] || undefined;
 
 /** Never stores the question. Only what is needed to see how the guide is used and whether it works. */
 async function audit(row) {

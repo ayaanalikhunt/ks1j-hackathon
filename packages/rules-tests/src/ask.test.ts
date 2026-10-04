@@ -177,6 +177,16 @@ describe("model client helpers", () => {
     expect(body.max_completion_tokens).toBe(900);
     await expect(llm.complete({ provider: "nope", apiKey: "k-long-enough", model: "m", system: "s", turns: [] })).rejects.toThrow(/provider/);
   });
+  it("speaks Gemini through Google's OpenAI-compatible endpoint", async () => {
+    const seen: { url: string; init: RequestInit }[] = [];
+    const fake = async (url: string | URL | Request, init?: RequestInit) => {
+      seen.push({ url: String(url), init: init! });
+      return { ok: true, json: async () => ({ choices: [{ message: { content: "g" } }] }) } as Response;
+    };
+    expect(await llm.complete({ provider: "gemini", apiKey: "gemini-test-key", model: "gemini-x", system: "s", turns: [{ role: "user", content: "q" }], fetchImpl: fake })).toBe("g");
+    expect(seen[0].url).toBe("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions");
+    expect(JSON.parse(String(seen[0].init.body))).toMatchObject({ model: "gemini-x", reasoning_effort: "low", messages: [{ role: "system", content: "s" }, { role: "user", content: "q" }] });
+  });
 });
 
 describe("rate limit and cache (pure)", () => {

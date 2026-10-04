@@ -50,6 +50,17 @@ const PROVIDERS = {
     }),
     text: (body) => body.choices?.[0]?.message?.content ?? "",
   },
+  // Google's OpenAI-compatible endpoint. Flash models think before answering and that counts against max_tokens, so allow
+  // more room and ask for low reasoning effort.
+  gemini: {
+    base: "https://generativelanguage.googleapis.com/v1beta/openai",
+    request: ({ apiKey, model, system, turns }) => ({
+      path: "/chat/completions",
+      headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
+      body: { model, max_tokens: 2048, reasoning_effort: "low", messages: [{ role: "system", content: system }, ...turns] },
+    }),
+    text: (body) => body.choices?.[0]?.message?.content ?? "",
+  },
 };
 
 /**
