@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Image, Text, View } from "react-native";
-import { DOC_LABELS, type DocKind } from "@ks1j/shared";
 import { Banner, Btn, Card } from "@/components/ui";
 import { pickProof, type ProofPhoto } from "@/lib/photo";
 import { F } from "@/constants/Type";
@@ -8,12 +7,12 @@ import { useTheme } from "@/lib/theme";
 
 /** One proof document: take a photo or choose one, preview it, replace or remove it. */
 export function ProofSlot({
-  kind,
+  label,
   required,
   value,
   onChange,
 }: {
-  kind: DocKind;
+  label: string;
   required?: boolean;
   value: ProofPhoto | null;
   onChange: (p: ProofPhoto | null) => void;
@@ -38,7 +37,7 @@ export function ProofSlot({
   return (
     <Card>
       <Text style={{ fontSize: 17, fontFamily: F.semi, color: t.text }}>
-        {DOC_LABELS[kind]}
+        {label}
         {required ? " (required)" : " (optional)"}
       </Text>
       {value ? (

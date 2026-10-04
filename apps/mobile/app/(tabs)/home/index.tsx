@@ -16,7 +16,7 @@ export default function Home() {
   const updates = [...events.rows]
     .sort((a, b) => (b.at?.seconds ?? 9e9) - (a.at?.seconds ?? 9e9))
     .slice(0, 6);
-  const tasks = loans.rows.filter((l) => l.status === "emi_pending_agreement" && !l.familyAccepted);
+  const tasks = loans.rows.filter((l) => l.status === "emi_pending_agreement" && l.familyEmi !== l.trusteeEmi);
 
   return (
     <Screen

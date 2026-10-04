@@ -241,25 +241,117 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // ---- loans: no interest field exists, by construction ----
+    // ---- loans (Qard-e-Hasana) ----
+    // No interest or late fee can be stored: every write is an allowlist of keys, and none of them is a rate or a fee.
+    // A plan can only be proposed after the background checks exist, and for an orphan loan only after a home visit by
+    // someone other than the person approving it. Disbursement, repayment and hardship decisions are Cloud Functions.
+    function loanOf(lid) { return get(/databases/$(database)/documents/loans/$(lid)).data; }
+    function hasCheck(lid, k) { return exists(/databases/$(database)/documents/loans/$(lid)/checks/$(k)); }
+    function basicChecksDone(lid) {
+      return hasCheck(lid, 'identity') && hasCheck(lid, 'address') && hasCheck(lid, 'income') && hasCheck(lid, 'institution_fee');
+    }
+    // Firestore allows 10 document lookups per rule evaluation, so the home visit is read once (a missing one fails the rule),
+    // not checked with exists() and then read again.
+    function orphanChecksDone(lid) {
+      let visit = get(/databases/$(database)/documents/loans/$(lid)/checks/home_visit).data;
+      return hasCheck(lid, 'orphan_status') && hasCheck(lid, 'guardian') && hasCheck(lid, 'references') && hasCheck(lid, 'no_other_loans')
+        && visit.by != request.auth.uid && visit.recommend == true;
+    }
+    function trusteeOrAdmin() { return role() == 'trustee' || isAdmin(); }
+    // The monthly amount must repay the loan within 48 months.
+    function emiOk(v, principal) { return v is int && v * 48 >= principal; }
+
     match /loans/{id} {
       allow read: if signedIn() && (resource.data.borrowerId == request.auth.uid || isStaff());
       allow create: if signedIn() && request.resource.data.borrowerId == request.auth.uid
         && request.resource.data.status == 'applied'
-        && !('interest' in request.resource.data) && !('lateFee' in request.resource.data);
-      // Disbursement requires prior two-sided EMI agreement.
-      allow update: if (role() == 'trustee' || isAdmin())
-        && (request.resource.data.status != 'disbursed'
-            || (resource.data.status == 'agreed' && resource.data.familyAccepted == true && resource.data.trusteeAccepted == true))
-        && !('interest' in request.resource.data) && !('lateFee' in request.resource.data);
-      allow update: if signedIn() && resource.data.borrowerId == request.auth.uid
-        && resource.data.status == 'emi_pending_agreement'
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['familyAccepted', 'status']);
+        && request.resource.data.principal is int && request.resource.data.principal > 0
+        && request.resource.data.courseEnd.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && request.resource.data.orphan is bool
+        && request.resource.data.keys().hasOnly(['borrowerId', 'borrowerName', 'studentName', 'course', 'institution', 'courseEnd',
+             'principal', 'purpose', 'orphan', 'parentStatus', 'guardianName', 'guardianRelation', 'guardianPhone', 'guardianAddress',
+             'guardianOccupation', 'guardianIncome', 'guarantorName', 'guarantorPhone', 'guarantorRelation', 'refs', 'status', 'createdAt'])
+        && (request.resource.data.orphan == false
+            || (request.resource.data.refs is list && request.resource.data.refs.size() >= 2
+                && request.resource.data.get('guardianName', '') != '' && request.resource.data.get('parentStatus', '') != ''));
+
+      // The committee accepts the application and proposes a monthly amount. Needs every check, and for an orphan loan a home visit.
+      allow update: if trusteeOrAdmin() && resource.data.status == 'applied'
+        && request.resource.data.status == 'emi_pending_agreement'
+        && basicChecksDone(id) && (resource.data.orphan == false || orphanChecksDone(id))
+        && request.resource.data.reviewedBy == request.auth.uid
+        && emiOk(request.resource.data.trusteeEmi, resource.data.principal)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'trusteeEmi', 'reviewedBy', 'reviewedAt']);
+      allow update: if trusteeOrAdmin() && resource.data.status in ['applied', 'emi_pending_agreement']
+        && request.resource.data.status == 'declined'
+        && request.resource.data.declinedBy == request.auth.uid
+        && request.resource.data.declineNote is string && request.resource.data.declineNote.size() >= 5
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'declinedBy', 'declineNote', 'declinedAt']);
+      // The family proposes its own monthly amount; the trustee may suggest another. The plan is agreed when both match.
+      allow update: if signedIn() && resource.data.borrowerId == request.auth.uid && resource.data.status == 'emi_pending_agreement'
+        && emiOk(request.resource.data.familyEmi, resource.data.principal)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['familyEmi']);
+      allow update: if trusteeOrAdmin() && resource.data.status == 'emi_pending_agreement'
+        && emiOk(request.resource.data.trusteeEmi, resource.data.principal)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['trusteeEmi']);
+      allow update: if trusteeOrAdmin() && resource.data.status == 'emi_pending_agreement'
+        && resource.data.get('familyEmi', 0) > 0 && resource.data.get('familyEmi', 0) == resource.data.get('trusteeEmi', -1)
+        && request.resource.data.status == 'agreed' && request.resource.data.emi == resource.data.familyEmi
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'emi', 'agreedAt']);
+
+      // Background checks: one document per check, written once by the person who did it. Never edited or removed.
+      match /checks/{key} {
+        allow read: if isStaff();
+        allow create: if isStaff() && loanOf(id).status == 'applied'
+          && key in ['identity', 'address', 'income', 'institution_fee', 'orphan_status', 'guardian', 'references', 'no_other_loans', 'home_visit']
+          && request.resource.data.by == request.auth.uid
+          && request.resource.data.keys().hasOnly(['by', 'at', 'note', 'recommend', 'report', 'date'])
+          && (key != 'home_visit'
+              || (request.resource.data.recommend is bool && request.resource.data.report is string
+                  && request.resource.data.report.size() >= 20 && request.resource.data.date is string));
+        allow update, delete: if false;
+      }
+      // Proof photos, as for cases. The family and staff can add them while the application is being checked.
+      match /documents/{docId} {
+        allow read: if signedIn() && (loanOf(id).borrowerId == request.auth.uid || isStaff());
+        allow create: if signedIn() && loanOf(id).status == 'applied'
+          && (loanOf(id).borrowerId == request.auth.uid || isStaff())
+          && request.resource.data.kind in ['aadhaar', 'address_proof', 'income_proof', 'admission_letter', 'fee_structure', 'mark_sheet', 'death_certificate', 'guardian_id', 'other']
+          && request.resource.data.dataUrl is string
+          && request.resource.data.dataUrl.matches('^data:image/(jpeg|png);base64,.*')
+          && request.resource.data.dataUrl.size() < 900000
+          && request.resource.data.keys().hasOnly(['kind', 'name', 'dataUrl', 'uploadedAt', 'addedBy'])
+          && (!('addedBy' in request.resource.data) || request.resource.data.addedBy == request.auth.uid);
+        allow update, delete: if false;
+      }
     }
+
+    // A repayment is created pending by the borrower. Only the Cloud Function marks it paid and moves the schedule.
     match /repayments/{id} {
       allow read: if signedIn() && (resource.data.borrowerId == request.auth.uid || isStaff());
       allow create: if signedIn() && request.resource.data.borrowerId == request.auth.uid
-        && request.resource.data.status == 'pending';
+        && request.resource.data.status == 'pending'
+        && request.resource.data.amount is int && request.resource.data.amount > 0
+        && request.resource.data.keys().hasOnly(['loanId', 'borrowerId', 'amount', 'status', 'createdAt'])
+        && loanOf(request.resource.data.loanId).borrowerId == request.auth.uid
+        && loanOf(request.resource.data.loanId).status in ['disbursed', 'repaying'];
+      allow update, delete: if false;
+    }
+
+    // Hardship: a family that cannot pay asks for a pause or a lower amount. Reminders stop until a trustee decides (a function).
+    match /hardships/{id} {
+      allow read: if signedIn() && (resource.data.borrowerId == request.auth.uid || isStaff());
+      allow create: if signedIn() && request.resource.data.borrowerId == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.type in ['pause', 'lower']
+        && request.resource.data.reason is string && request.resource.data.reason.size() >= 10
+        && (request.resource.data.type == 'pause'
+            ? (request.resource.data.months is int && request.resource.data.months >= 1 && request.resource.data.months <= 6)
+            : (request.resource.data.newEmi is int && request.resource.data.newEmi > 0))
+        && (!('proofDataUrl' in request.resource.data) || request.resource.data.proofDataUrl.size() < 900000)
+        && request.resource.data.keys().hasOnly(['loanId', 'borrowerId', 'type', 'months', 'newEmi', 'reason', 'proofDataUrl', 'status', 'createdAt'])
+        && loanOf(request.resource.data.loanId).borrowerId == request.auth.uid
+        && loanOf(request.resource.data.loanId).status in ['disbursed', 'repaying'];
       allow update, delete: if false;
     }
 

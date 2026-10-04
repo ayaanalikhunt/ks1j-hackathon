@@ -2,7 +2,7 @@ import { router } from "expo-router";
 import { addDoc, collection, doc, runTransaction, serverTimestamp, updateDoc } from "firebase/firestore";
 import { useState } from "react";
 import { View } from "react-native";
-import { CASE_TYPES, CASE_TYPE_LABELS, DOC_KINDS, requiredDocs, type CaseType, type DocKind } from "@ks1j/shared";
+import { CASE_TYPES, CASE_TYPE_LABELS, DOC_KINDS, DOC_LABELS, requiredDocs, type CaseType, type DocKind } from "@ks1j/shared";
 import { ProofSlot } from "@/components/ProofSlot";
 import { RequireAuth } from "@/components/RequireAuth";
 import { Banner, Body, Btn, Chip, Field, Heading, Screen } from "@/components/ui";
@@ -144,7 +144,7 @@ export default function Apply() {
         <Body muted>Clear photos, taken in good light. These are what the committee needs for a {CASE_TYPE_LABELS[type].toLowerCase()} request.</Body>
         <Field label="Last 4 digits of your Aadhaar (optional)" value={f.idLast4} onChangeText={set("idLast4")} keyboardType="number-pad" maxLength={4} />
         {needed.map((k) => (
-          <ProofSlot key={k} kind={k} required value={docs[k] ?? null} onChange={(p) => setDocs((d) => ({ ...d, [k]: p }))} />
+          <ProofSlot key={k} label={DOC_LABELS[k]} required value={docs[k] ?? null} onChange={(p) => setDocs((d) => ({ ...d, [k]: p }))} />
         ))}
 
         {err && <Banner error>{err}</Banner>}

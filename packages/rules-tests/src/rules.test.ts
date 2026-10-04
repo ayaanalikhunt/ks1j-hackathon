@@ -1,5 +1,5 @@
 import { assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestEnvironment } from "@firebase/rules-unit-testing";
-import { doc, getDoc, setDoc, updateDoc, addDoc, collection, deleteDoc } from "firebase/firestore";
+import { doc, getDoc, getDocs, setDoc, updateDoc, addDoc, collection, deleteDoc } from "firebase/firestore";
 import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, beforeEach, describe, it } from "vitest";
 
@@ -308,29 +308,172 @@ describe("rule 3 & 4: money and ledgers", () => {
   });
 });
 
-describe("rule 8: loans", () => {
-  it("no interest or late fee fields can be stored", async () => {
-    await assertSucceeds(setDoc(doc(asUser("alice"), "loans", "L1"), { borrowerId: "alice", principal: 100000, status: "applied" }));
-    await assertFails(setDoc(doc(asUser("alice"), "loans", "L2"), { borrowerId: "alice", principal: 100000, status: "applied", interest: 5 }));
-    await assertFails(updateDoc(doc(asUser("tru1"), "loans", "L1"), { lateFee: 100 }));
+describe("education loans: application and background check", () => {
+  const ref = { name: "Ref One", phone: "+91 12345 67890", relation: "Teacher" };
+  const loan = (extra = {}) => ({
+    borrowerId: "alice",
+    borrowerName: "Alice",
+    studentName: "Zain",
+    course: "B.Com",
+    institution: "City College",
+    courseEnd: "2027-10-01",
+    principal: 60000,
+    purpose: "Fees",
+    orphan: false,
+    status: "applied",
+    ...extra,
   });
-  it("cannot disburse before both sides agree", async () => {
-    await env.withSecurityRulesDisabled(async (ctx) => {
-      const db = ctx.firestore();
-      await setDoc(doc(db, "loans", "LA"), { borrowerId: "alice", principal: 1, status: "emi_pending_agreement", familyAccepted: false, trusteeAccepted: true });
-      await setDoc(doc(db, "loans", "LB"), { borrowerId: "alice", principal: 1, status: "agreed", familyAccepted: true, trusteeAccepted: true });
-    });
-    await assertFails(updateDoc(doc(asUser("tru1"), "loans", "LA"), { status: "disbursed" }));
-    await assertSucceeds(updateDoc(doc(asUser("tru1"), "loans", "LB"), { status: "disbursed" }));
+  const orphan = (extra = {}) =>
+    loan({ orphan: true, parentStatus: "both_deceased", guardianName: "Uncle", guardianRelation: "Uncle", refs: [ref, { ...ref, name: "Ref Two" }], ...extra });
+  const check = (by: string, extra = {}) => ({ by, at: new Date(), ...extra });
+  const visit = (by: string, recommend = true) => check(by, { recommend, report: "Visited the home. The family lives as described.", date: "2026-10-03" });
+
+  it("an application cannot carry an interest rate, a fee or any unlisted field", async () => {
+    await assertSucceeds(setDoc(doc(asUser("alice"), "loans", "L1"), loan()));
+    await assertFails(setDoc(doc(asUser("alice"), "loans", "L2"), loan({ interest: 5 })));
+    await assertFails(setDoc(doc(asUser("alice"), "loans", "L3"), loan({ lateFee: 100 })));
+    await assertFails(setDoc(doc(asUser("alice"), "loans", "L4"), loan({ status: "agreed" })));
+    await assertFails(setDoc(doc(asUser("alice"), "loans", "L5"), loan({ borrowerId: "bob" })));
+    await assertFails(setDoc(doc(asUser("alice"), "loans", "L6"), loan({ principal: -5 })));
+    await assertFails(setDoc(doc(asUser("alice"), "loans", "L7"), loan({ courseEnd: "next year" })));
   });
-  it("family can accept the EMI", async () => {
-    await env.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), "loans", "LA"), { borrowerId: "alice", principal: 1, status: "emi_pending_agreement", familyAccepted: false });
-    });
-    await assertSucceeds(updateDoc(doc(asUser("alice"), "loans", "LA"), { familyAccepted: true }));
-    await assertFails(updateDoc(doc(asUser("bob"), "loans", "LA"), { familyAccepted: true }));
+  it("an orphan application needs the guardian details and two references", async () => {
+    await assertSucceeds(setDoc(doc(asUser("alice"), "loans", "O1"), orphan()));
+    await assertFails(setDoc(doc(asUser("alice"), "loans", "O2"), orphan({ refs: [ref] })));
+    await assertFails(setDoc(doc(asUser("alice"), "loans", "O3"), orphan({ guardianName: "" })));
+    await assertFails(setDoc(doc(asUser("alice"), "loans", "O4"), loan({ orphan: true })));
+  });
+  it("a plan cannot be proposed until every basic check exists", async () => {
+    await assertSucceeds(setDoc(doc(asUser("alice"), "loans", "L1"), loan()));
+    const plan = { status: "emi_pending_agreement", trusteeEmi: 1250, reviewedBy: "tru1", reviewedAt: new Date() };
+    await assertFails(updateDoc(doc(asUser("tru1"), "loans", "L1"), plan));
+    for (const k of ["identity", "address", "income"]) await assertSucceeds(setDoc(doc(asUser("ver1"), "loans", "L1", "checks", k), check("ver1")));
+    await assertFails(updateDoc(doc(asUser("tru1"), "loans", "L1"), plan)); // institution_fee still missing
+    await assertSucceeds(setDoc(doc(asUser("ver1"), "loans", "L1", "checks", "institution_fee"), check("ver1")));
+    await assertFails(updateDoc(doc(asUser("alice"), "loans", "L1"), plan)); // the family cannot approve itself
+    await assertFails(updateDoc(doc(asUser("ver1"), "loans", "L1"), { ...plan, reviewedBy: "ver1" })); // a verifier cannot propose a plan
+    await assertFails(updateDoc(doc(asUser("tru1"), "loans", "L1"), { ...plan, trusteeEmi: 1000 })); // 1000 x 48 < 60000
+    await assertSucceeds(updateDoc(doc(asUser("tru1"), "loans", "L1"), plan));
+  });
+  it("an orphan loan also needs a home visit by someone other than the approver, and it must recommend the loan", async () => {
+    await assertSucceeds(setDoc(doc(asUser("alice"), "loans", "O1"), orphan()));
+    for (const k of ["identity", "address", "income", "institution_fee", "orphan_status", "guardian", "references", "no_other_loans"]) {
+      await assertSucceeds(setDoc(doc(asUser("ver1"), "loans", "O1", "checks", k), check("ver1")));
+    }
+    const plan = { status: "emi_pending_agreement", trusteeEmi: 1250, reviewedBy: "tru1", reviewedAt: new Date() };
+    await assertFails(updateDoc(doc(asUser("tru1"), "loans", "O1"), plan)); // no home visit yet
+    await assertFails(setDoc(doc(asUser("ver1"), "loans", "O1", "checks", "home_visit"), check("ver1", { recommend: true, report: "short" }))); // report too short
+    await assertSucceeds(setDoc(doc(asUser("tru1"), "loans", "O1", "checks", "home_visit"), visit("tru1")));
+    await assertFails(updateDoc(doc(asUser("tru1"), "loans", "O1"), plan)); // the approver cannot be the one who did the visit
+    await assertSucceeds(updateDoc(doc(asUser("tru2"), "loans", "O1"), { ...plan, reviewedBy: "tru2" }));
+  });
+  it("a visit that does not recommend the loan blocks the plan", async () => {
+    await assertSucceeds(setDoc(doc(asUser("alice"), "loans", "O2"), orphan()));
+    for (const k of ["identity", "address", "income", "institution_fee", "orphan_status", "guardian", "references", "no_other_loans"]) {
+      await assertSucceeds(setDoc(doc(asUser("ver1"), "loans", "O2", "checks", k), check("ver1")));
+    }
+    await assertSucceeds(setDoc(doc(asUser("ver1"), "loans", "O2", "checks", "home_visit"), visit("ver1", false)));
+    await assertFails(updateDoc(doc(asUser("tru1"), "loans", "O2"), { status: "emi_pending_agreement", trusteeEmi: 1250, reviewedBy: "tru1" }));
+  });
+  it("checks are signed, written once, staff-only, and never edited", async () => {
+    await assertSucceeds(setDoc(doc(asUser("alice"), "loans", "L1"), loan()));
+    await assertFails(setDoc(doc(asUser("alice"), "loans", "L1", "checks", "identity"), check("alice"))); // the family cannot tick its own boxes
+    await assertFails(setDoc(doc(asUser("vol"), "loans", "L1", "checks", "identity"), check("vol")));
+    await assertFails(setDoc(doc(asUser("ver1"), "loans", "L1", "checks", "identity"), check("tru1"))); // signed by someone else
+    await assertFails(setDoc(doc(asUser("ver1"), "loans", "L1", "checks", "made_up"), check("ver1")));
+    await assertSucceeds(setDoc(doc(asUser("ver1"), "loans", "L1", "checks", "identity"), check("ver1")));
+    await assertFails(setDoc(doc(asUser("tru1"), "loans", "L1", "checks", "identity"), check("tru1"))); // cannot overwrite
+    await assertFails(deleteDoc(doc(asUser("adm"), "loans", "L1", "checks", "identity")));
+    await assertFails(getDoc(doc(asUser("alice"), "loans", "L1", "checks", "identity")));
+  });
+  it("loan documents: the family and staff add them while it is being checked; nobody else can see them", async () => {
+    await assertSucceeds(setDoc(doc(asUser("alice"), "loans", "L1"), loan()));
+    const d = { kind: "admission_letter", name: "letter.jpg", dataUrl: "data:image/jpeg;base64,AAAA" };
+    await assertSucceeds(addDoc(collection(asUser("alice"), "loans", "L1", "documents"), d));
+    await assertSucceeds(addDoc(collection(asUser("ver1"), "loans", "L1", "documents"), { ...d, kind: "income_proof", addedBy: "ver1" }));
+    await assertFails(addDoc(collection(asUser("bob"), "loans", "L1", "documents"), d));
+    await assertFails(addDoc(collection(asUser("alice"), "loans", "L1", "documents"), { ...d, kind: "passport" }));
+    await assertFails(addDoc(collection(asUser("ver1"), "loans", "L1", "documents"), { ...d, addedBy: "tru1" }));
+    await assertFails(getDocs(collection(asUser("bob"), "loans", "L1", "documents")));
+    await assertSucceeds(getDocs(collection(asUser("ver1"), "loans", "L1", "documents")));
   });
 });
+
+describe("education loans: agreeing the monthly amount", () => {
+  const agreed = async (extra = {}) => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "loans", "P1"), {
+        borrowerId: "alice", principal: 60000, courseEnd: "2027-10-01", orphan: false, status: "emi_pending_agreement", trusteeEmi: 2000, ...extra,
+      });
+    });
+  };
+  it("the family proposes an amount that repays within 48 months; only the borrower can", async () => {
+    await agreed();
+    await assertFails(updateDoc(doc(asUser("alice"), "loans", "P1"), { familyEmi: 1000 })); // would take more than 48 months
+    await assertFails(updateDoc(doc(asUser("bob"), "loans", "P1"), { familyEmi: 2000 }));
+    await assertFails(updateDoc(doc(asUser("alice"), "loans", "P1"), { familyEmi: 2000, status: "agreed" })); // cannot agree itself
+    await assertSucceeds(updateDoc(doc(asUser("alice"), "loans", "P1"), { familyEmi: 2000 }));
+  });
+  it("the plan is agreed only when the family and the trustee name the same amount", async () => {
+    await agreed({ familyEmi: 1500, trusteeEmi: 2000 });
+    await assertFails(updateDoc(doc(asUser("tru1"), "loans", "P1"), { status: "agreed", emi: 1500, agreedAt: new Date() })); // 1500 vs 2000
+    await assertSucceeds(updateDoc(doc(asUser("tru1"), "loans", "P1"), { trusteeEmi: 1500 }));
+    await assertFails(updateDoc(doc(asUser("alice"), "loans", "P1"), { status: "agreed", emi: 1500 }));
+    await assertFails(updateDoc(doc(asUser("tru1"), "loans", "P1"), { status: "agreed", emi: 1800, agreedAt: new Date() })); // emi must be the agreed amount
+    await assertSucceeds(updateDoc(doc(asUser("tru1"), "loans", "P1"), { status: "agreed", emi: 1500, agreedAt: new Date() }));
+  });
+  it("nobody can mark a loan paid out or change its balance from a client", async () => {
+    await agreed({ familyEmi: 2000, emi: 2000, status: "agreed" });
+    await assertFails(updateDoc(doc(asUser("adm"), "loans", "P1"), { status: "disbursed" }));
+    await assertFails(updateDoc(doc(asUser("own"), "loans", "P1"), { repaid: 60000 }));
+    await assertFails(updateDoc(doc(asUser("alice"), "loans", "P1"), { repaid: 60000, status: "closed" }));
+  });
+  it("a plan can be declined with a reason, but not by the family or a volunteer", async () => {
+    await agreed();
+    const no = { status: "declined", declinedBy: "tru1", declineNote: "Cannot confirm the fees" };
+    await assertFails(updateDoc(doc(asUser("alice"), "loans", "P1"), { ...no, declinedBy: "alice" }));
+    await assertFails(updateDoc(doc(asUser("tru1"), "loans", "P1"), { ...no, declineNote: "no" }));
+    await assertSucceeds(updateDoc(doc(asUser("tru1"), "loans", "P1"), no));
+  });
+});
+
+describe("education loans: repayment and hardship", () => {
+  const live = async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "loans", "R1"), { borrowerId: "alice", principal: 60000, emi: 2000, status: "disbursed", nextDue: "2028-04-01", repaid: 0 });
+      await setDoc(doc(ctx.firestore(), "loans", "R0"), { borrowerId: "alice", principal: 60000, emi: 2000, status: "agreed" });
+    });
+  };
+  it("a repayment is created pending by the borrower, on a paid-out loan only", async () => {
+    await live();
+    const pay = { loanId: "R1", borrowerId: "alice", amount: 2000, status: "pending" };
+    await assertSucceeds(addDoc(collection(asUser("alice"), "repayments"), pay));
+    await assertFails(addDoc(collection(asUser("alice"), "repayments"), { ...pay, status: "paid" }));
+    await assertFails(addDoc(collection(asUser("alice"), "repayments"), { ...pay, loanId: "R0" })); // not paid out yet
+    await assertFails(addDoc(collection(asUser("bob"), "repayments"), { ...pay, borrowerId: "bob" })); // someone else's loan
+    await assertFails(addDoc(collection(asUser("alice"), "repayments"), { ...pay, lateFee: 50 }));
+  });
+  it("a hardship request needs a real reason and sensible terms, and a trustee decides it through a function, not a client write", async () => {
+    await live();
+    const ask = { loanId: "R1", borrowerId: "alice", type: "pause", months: 2, reason: "My job ended in September.", status: "pending" };
+    await assertSucceeds(addDoc(collection(asUser("alice"), "hardships"), ask));
+    await assertFails(addDoc(collection(asUser("alice"), "hardships"), { ...ask, months: 12 }));
+    await assertFails(addDoc(collection(asUser("alice"), "hardships"), { ...ask, reason: "short" }));
+    await assertFails(addDoc(collection(asUser("alice"), "hardships"), { ...ask, status: "approved" }));
+    await assertFails(addDoc(collection(asUser("bob"), "hardships"), { ...ask, borrowerId: "bob" }));
+    await assertSucceeds(addDoc(collection(asUser("alice"), "hardships"), { loanId: "R1", borrowerId: "alice", type: "lower", newEmi: 1000, reason: "Income dropped for a few months.", status: "pending" }));
+    const h = await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "hardships", "h1"), ask);
+    });
+    void h;
+    await assertFails(updateDoc(doc(asUser("tru1"), "hardships", "h1"), { status: "approved", decidedBy: "tru1" }));
+    await assertFails(updateDoc(doc(asUser("alice"), "hardships", "h1"), { status: "approved" }));
+    await assertSucceeds(getDoc(doc(asUser("alice"), "hardships", "h1")));
+    await assertSucceeds(getDoc(doc(asUser("tru1"), "hardships", "h1")));
+    await assertFails(getDoc(doc(asUser("bob"), "hardships", "h1")));
+  });
+});
+
 
 describe("community", () => {
   it("members without a profile are gated out", async () => {

@@ -3,6 +3,13 @@ import {
   canApprove,
   computeFlags,
   csvRow,
+  daysBetween,
+  firstEmiDate,
+  followUp,
+  minEmi,
+  nextMonth,
+  requiredChecks,
+  requiredLoanDocs,
   emiSchedule,
   formatRupees,
   initials,
@@ -100,5 +107,39 @@ describe("fraud flags", () => {
     expect(computeFlags([c("a", "u1", 1, "disbursed"), c("b", "u1", 2)], [])).toEqual([]);
     expect(computeFlags([c("a", "u1", 1, "declined"), c("b", "u1", 2, "closed")], [])).toEqual([]);
     expect(computeFlags([c("a", "u1", 1, "published"), c("b", "u1", 2, "funded")], [])).toHaveLength(1);
+  });
+});
+
+describe("education loans", () => {
+  it("minimum monthly amount spreads the loan over 48 months, rounded up", () => {
+    expect(minEmi(60000)).toBe(1250);
+    expect(minEmi(100000)).toBe(2084);
+    expect(minEmi(1)).toBe(1);
+  });
+  it("repayment starts six months after the course ends", () => {
+    expect(firstEmiDate("2027-10-01")).toBe("2028-04-01");
+    expect(firstEmiDate("2027-08-31")).toBe("2028-02-29"); // clamped to the month length (2028 is a leap year)
+    expect(firstEmiDate("2027-12-15")).toBe("2028-06-15");
+    expect(nextMonth("2028-01-31")).toBe("2028-02-29");
+    expect(nextMonth("2028-12-05")).toBe("2029-01-05");
+  });
+  it("counts days between dates", () => {
+    expect(daysBetween("2026-10-01", "2026-10-16")).toBe(15);
+    expect(daysBetween("2026-10-16", "2026-10-01")).toBe(-15);
+    expect(daysBetween("2028-02-28", "2028-03-01")).toBe(2);
+  });
+  it("follow-up: reminders from day one, a person from day fifteen, none during a hardship review", () => {
+    expect(followUp({ nextDue: "2026-11-20" }, "2026-10-04")).toBe("on_track");
+    expect(followUp({ nextDue: "2026-10-08" }, "2026-10-04")).toBe("due_soon");
+    expect(followUp({ nextDue: "2026-10-01" }, "2026-10-04")).toBe("late");
+    expect(followUp({ nextDue: "2026-09-19" }, "2026-10-04")).toBe("act");
+    expect(followUp({ nextDue: "2026-09-19", hardshipPending: true }, "2026-10-04")).toBe("hardship");
+  });
+  it("an orphan loan needs the extra checks, including a home visit", () => {
+    expect(requiredChecks(false)).toEqual(["identity", "address", "income", "institution_fee"]);
+    expect(requiredChecks(true)).toEqual(expect.arrayContaining(["orphan_status", "guardian", "references", "no_other_loans", "home_visit"]));
+    expect(requiredChecks(true)).toHaveLength(9);
+    expect(requiredLoanDocs(true)).toEqual(expect.arrayContaining(["death_certificate", "guardian_id"]));
+    expect(requiredLoanDocs(false)).not.toContain("death_certificate");
   });
 });

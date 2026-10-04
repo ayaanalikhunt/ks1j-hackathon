@@ -275,3 +275,91 @@ describe("lawajam dues and institution handovers", () => {
     await expect(callable(finance, "recordHandover")({ institutionId: ref.id, amount: 1, reference: "NEFT-9" })).rejects.toThrow();
   });
 });
+
+describe("orphan education loan, end to end", () => {
+  let borrower: ReturnType<typeof client>;
+  let verifier: ReturnType<typeof client>;
+  let visitor: ReturnType<typeof client>;
+  let approver: ReturnType<typeof client>;
+  let finance: ReturnType<typeof client>;
+  const loanId = "orphan-loan-1";
+  const ref = { name: "Teacher", phone: "+91 12345 67890", relation: "Teacher" };
+  const stamp = (by: string, extra = {}) => ({ by, at: new Date(), ...extra });
+
+  beforeAll(async () => {
+    borrower = await person("ln-borrower", "member");
+    verifier = await person("ln-verifier", "verifier");
+    visitor = await person("ln-visitor", "trustee");
+    approver = await person("ln-approver", "trustee");
+    finance = await person("ln-finance", "admin");
+  });
+
+  it("the guardian applies with the orphan details, references and documents", async () => {
+    await setDoc(doc(borrower.db, "loans", loanId), {
+      borrowerId: "ln-borrower", borrowerName: "Guardian", studentName: "Zain", course: "B.Com", institution: "City College",
+      courseEnd: "2027-10-01", principal: 60000, purpose: "Three years of fees", orphan: true, parentStatus: "both_deceased",
+      guardianName: "Uncle Ali", guardianRelation: "Uncle", guardianPhone: "+91 12345 67890", refs: [ref, { ...ref, name: "Imam" }], status: "applied",
+    });
+    for (const kind of ["aadhaar", "address_proof", "income_proof", "admission_letter", "fee_structure", "mark_sheet", "death_certificate", "guardian_id"]) {
+      await addDoc(collection(borrower.db, "loans", loanId, "documents"), { kind, name: `${kind}.jpg`, dataUrl: "data:image/jpeg;base64,AAAA" });
+    }
+    expect((await getDocs(collection(verifier.db, "loans", loanId, "documents"))).size).toBe(8);
+  });
+
+  it("no plan can be proposed on a partial background check, or without a home visit by someone else", async () => {
+    const plan = { status: "emi_pending_agreement", trusteeEmi: 1250, reviewedBy: "ln-approver" };
+    await expect(updateDoc(doc(approver.db, "loans", loanId), plan)).rejects.toThrow();
+    for (const k of ["identity", "address", "income", "institution_fee", "orphan_status", "guardian", "references", "no_other_loans"]) {
+      await setDoc(doc(verifier.db, "loans", loanId, "checks", k), stamp("ln-verifier"));
+    }
+    await expect(updateDoc(doc(approver.db, "loans", loanId), plan)).rejects.toThrow(); // still no home visit
+    await setDoc(doc(visitor.db, "loans", loanId, "checks", "home_visit"), stamp("ln-visitor", { recommend: true, report: "Met the family at home and the school. All as described.", date: "2026-10-03" }));
+    await expect(updateDoc(doc(visitor.db, "loans", loanId), { ...plan, reviewedBy: "ln-visitor" })).rejects.toThrow(); // the visitor cannot approve
+  });
+
+  it("a different trustee proposes the plan; the family and trustee agree on one amount", async () => {
+    await updateDoc(doc(approver.db, "loans", loanId), { status: "emi_pending_agreement", trusteeEmi: 1250, reviewedBy: "ln-approver" });
+    await expect(updateDoc(doc(borrower.db, "loans", loanId), { familyEmi: 1000 })).rejects.toThrow(); // under the 48-month minimum
+    await updateDoc(doc(borrower.db, "loans", loanId), { familyEmi: 1250 });
+    await updateDoc(doc(approver.db, "loans", loanId), { status: "agreed", emi: 1250 });
+    expect((await getDoc(doc(borrower.db, "loans", loanId))).data()?.status).toBe("agreed");
+  });
+
+  it("only an admin can pay it out, once; the schedule starts six months after the course ends", async () => {
+    await expect(callable(approver, "disburseLoan")({ loanId })).rejects.toThrow(/Admins only|permission/i);
+    await callable(finance, "disburseLoan")({ loanId });
+    await expect(callable(finance, "disburseLoan")({ loanId })).rejects.toThrow(/agreed|precondition/i);
+    const l = (await getDoc(doc(borrower.db, "loans", loanId))).data();
+    expect(l).toMatchObject({ status: "disbursed", nextDue: "2028-04-01", months: 48, repaid: 0, emi: 1250 });
+    expect((await adminDb().doc(`ledger/loan-${loanId}`).get()).data()).toMatchObject({ direction: "out", fund: "general", amount: 60000 });
+  });
+
+  it("a confirmed instalment moves the due date on; the balance only goes down", async () => {
+    const r = await addDoc(collection(borrower.db, "repayments"), { loanId, borrowerId: "ln-borrower", amount: 1250, status: "pending" });
+    await expect(addDoc(collection(borrower.db, "repayments"), { loanId, borrowerId: "ln-borrower", amount: 1250, status: "pending", lateFee: 10 })).rejects.toThrow();
+    await callable(finance, "confirmPayment")({ kind: "repayment", id: r.id });
+    const l = (await getDoc(doc(borrower.db, "loans", loanId))).data();
+    expect(l).toMatchObject({ status: "repaying", repaid: 1250, nextDue: "2028-05-01" });
+    expect((await adminDb().doc(`ledger/repayment-${r.id}`).get()).data()).toMatchObject({ direction: "in", fund: "loan_repayment", amount: 1250 });
+  });
+
+  it("a hardship pause is decided by a trustee through the function, and pushes the next due date back", async () => {
+    const h = await addDoc(collection(borrower.db, "hardships"), { loanId, borrowerId: "ln-borrower", type: "pause", months: 2, reason: "Our income stopped for a while.", status: "pending" });
+    await expect(callable(borrower, "decideHardship")({ id: h.id, approve: true })).rejects.toThrow(/only|permission/i);
+    await callable(approver, "decideHardship")({ id: h.id, approve: true, note: "Income proof seen." });
+    await expect(callable(approver, "decideHardship")({ id: h.id, approve: false })).rejects.toThrow(/already|precondition/i);
+    const l = (await getDoc(doc(borrower.db, "loans", loanId))).data();
+    expect(l?.nextDue).toBe("2028-07-01");
+    expect(l?.repaid).toBe(1250); // nothing was added to what is owed
+    expect((await getDoc(doc(borrower.db, "hardships", h.id))).data()?.status).toBe("approved");
+  });
+
+  it("paying the rest closes the loan", async () => {
+    const r = await addDoc(collection(borrower.db, "repayments"), { loanId, borrowerId: "ln-borrower", amount: 58750, status: "pending" });
+    await callable(finance, "confirmPayment")({ kind: "repayment", id: r.id });
+    const l = (await getDoc(doc(borrower.db, "loans", loanId))).data();
+    expect(l?.status).toBe("closed");
+    expect(l?.repaid).toBe(60000);
+    await expect(addDoc(collection(borrower.db, "repayments"), { loanId, borrowerId: "ln-borrower", amount: 100, status: "pending" })).rejects.toThrow(); // nothing left to repay
+  });
+});
