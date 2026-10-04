@@ -41,6 +41,16 @@ function HeroHeader({ eyebrow, title, intro }: { eyebrow: string; title: string;
   );
 }
 
+/** The KS1J wordmark for the header of inner screens, so the name is on every screen, not just the tab roots. */
+export function HeaderWordmark() {
+  const t = useTheme();
+  return (
+    <Text accessibilityRole="header" style={[s.navWord, { color: t.text }]}>
+      KS<Text style={{ color: HERO_GOLD }}>1</Text>J
+    </Text>
+  );
+}
+
 // ---- Scroll reveal: each box "spawns" in place (fade and a slight grow, no sliding) the first time it scrolls into view ----
 interface RevealApi {
   bottom: { current: number };
@@ -318,8 +328,9 @@ const s = StyleSheet.create({
   hero: { backgroundColor: HERO_GREEN, borderRadius: 24, padding: 20, gap: 6, overflow: "hidden" },
   heroArch: { position: "absolute", right: 14, bottom: 0, opacity: 0.85 },
   brandRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 },
-  brandLogo: { width: 40, height: 40, borderRadius: 10, backgroundColor: "#ffffff" },
-  brandWord: { color: "#ffffff", fontSize: 26, fontFamily: F.extra, letterSpacing: -0.5 },
+  brandLogo: { width: 56, height: 56, borderRadius: 14, backgroundColor: "#ffffff" },
+  brandWord: { color: "#ffffff", fontSize: 44, lineHeight: 50, fontFamily: F.extra, letterSpacing: -1 },
+  navWord: { fontSize: 28, lineHeight: 32, fontFamily: F.extra, letterSpacing: -0.5 },
   header: { borderWidth: 1, borderRadius: 16, padding: 18, gap: 6 },
   eyebrow: { fontSize: 12, letterSpacing: 2, fontFamily: F.semi },
   title: { fontFamily: D.medium, fontSize: 28, lineHeight: 34 },

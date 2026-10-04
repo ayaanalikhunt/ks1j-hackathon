@@ -1,4 +1,5 @@
 import { Stack } from "expo-router";
+import { HeaderWordmark } from "@/components/ui";
 import { useTheme } from "@/lib/theme";
 
 /** Shared stack for each tab and the community section. */
@@ -12,7 +13,7 @@ export function StackLayout() {
         headerShadowVisible: false,
         contentStyle: { backgroundColor: t.bg },
         headerBackTitle: "Back",
-        headerTitle: "",
+        headerTitle: () => <HeaderWordmark />,
       }}
     >
       {/* Tab roots draw their own header card. */}
