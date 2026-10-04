@@ -284,3 +284,39 @@ export function transparencyPdf(d: TransparencyData) {
   footer(doc, "Every figure is added up from verified payments, committee allocations and recorded payouts. No donor or family is named and no private detail is published. Loans carry zero interest and zero late fees.");
   return doc;
 }
+
+export interface ReportSection {
+  title: string;
+  pairs?: [string, string][];
+  table?: { cols: { head: string; width: number; align?: "left" | "right" }[]; rows: string[][]; empty?: string };
+  note?: string;
+}
+
+/** The committee's financial report: filters used, then sections of figures and tables. Aggregates only; no donor or family is named. */
+export function committeeReportPdf(d: { filters: string; sections: ReportSection[]; generatedAt: Date }) {
+  const { doc, y: y0 } = start("Committee financial report", `Generated ${formatDateTime(d.generatedAt)}`);
+  let y = y0;
+  doc.setFont("helvetica", "normal").setFontSize(9).text(doc.splitTextToSize(`Filters: ${safe(d.filters)}`, W - 2 * M), M, y);
+  y += 8;
+  for (const s of d.sections) {
+    y = room(doc, y, 30);
+    doc.setFont("helvetica", "bold").setFontSize(12).text(safe(s.title), M, y);
+    y += 6;
+    if (s.pairs) y = pairs(doc, y, s.pairs) + 2;
+    if (s.table) {
+      if (s.table.rows.length === 0) {
+        doc.setFont("helvetica", "normal").setFontSize(10).text(safe(s.table.empty ?? "Nothing for these filters."), M, y);
+        y += 8;
+      } else {
+        y = table(doc, y, s.table.cols, s.table.rows) + 4;
+      }
+    }
+    if (s.note) {
+      doc.setFont("helvetica", "normal").setFontSize(8).text(doc.splitTextToSize(safe(s.note), W - 2 * M), M, y);
+      y += 8;
+    }
+    y += 4;
+  }
+  footer(doc, "Added up on the server from verified payments, committee allocations, recorded payouts, cases and loans. No donor or family is named. Loans are kept apart from donations.");
+  return doc;
+}

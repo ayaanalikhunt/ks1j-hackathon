@@ -6,23 +6,9 @@ import { CASE_STATUS_LABELS, FUND_LABELS, NEED_CATEGORIES, PURPOSE_LABELS, csvRo
 import { Banner, Button, Card, Field, PageHeader } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { downloadText } from "@/lib/download";
+import type { Bucket, Report } from "@/lib/reportPdf";
 import { auth } from "@/lib/firebase";
 import { useCollection } from "@/lib/useCollection";
-
-interface Bucket { key: string; amount: number; count: number; allocated: number; disbursed: number }
-interface Report {
-  totals: { verifiedDonations: number; donationCount: number; allocated: number; unallocated: number; disbursed: number; pendingDisbursement: number; refunded: number; awaitingVerification: number };
-  byPurpose: Bucket[];
-  byFund: Bucket[];
-  byCurrency: Bucket[];
-  byCategory: Bucket[];
-  cases: { reference: string | null; status: string; requested: number; raised: number; allocated: number; disbursed: number }[];
-  pipeline: Record<string, number>;
-  loans: { count: number; active: number; lent: number; repaid: number; outstanding: number; pendingApproval: number };
-  donationVsLoan: { donations: number; loansLent: number; loansRepaid: number };
-  reconciliation: { ok: boolean; warnings: { donation: string; problem: string }[] };
-  rows: { reference: string; date: string | null; amount: number; originalAmount: number; originalCurrency: string; purpose: string | null; fund: string | null; status: string; allocated: number; disbursed: number }[];
-}
 
 const run = httpsCallable<unknown, Report>(getFunctions(auth.app, "asia-south1"), "getFinancialReport");
 const CURRENCIES = ["INR", "USD", "EUR", "GBP", "AED", "SAR", "CAD", "AUD", "SGD", "QAR", "KWD"];
@@ -94,6 +80,12 @@ export default function Reports() {
     downloadText("ks1j-report.csv", [head, ...body].join("\n"));
   }
 
+  async function exportPdf() {
+    if (!r) return;
+    const { committeePdf } = await import("@/lib/reportPdf");
+    committeePdf(r, f).save("ks1j-committee-report.pdf");
+  }
+
   if (member && !isAdminLike(member.role)) return <Banner kind="error">Reports are for admins.</Banner>;
   const t = r?.totals;
   const p = r?.pipeline;
@@ -119,6 +111,7 @@ export default function Reports() {
         <div className="mt-4 flex flex-wrap gap-2">
           <Button onClick={go} disabled={busy}>{busy ? "Running…" : "Run report"}</Button>
           {r && <Button className="!bg-card !text-[var(--fg)] border border-line" onClick={exportCsv}>Download CSV</Button>}
+          {r && <Button className="!bg-card !text-[var(--fg)] border border-line" onClick={exportPdf}>Download PDF</Button>}
           {r && <Button className="!bg-card !text-[var(--fg)] border border-line" onClick={() => window.print()}>Print</Button>}
         </div>
         {msg && <div className="mt-3"><Banner kind="error">{msg}</Banner></div>}
