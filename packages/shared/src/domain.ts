@@ -1,5 +1,5 @@
 // Domain enums/types. Keep in sync with firestore.rules and functions/.
-export const ROLES = ["member", "verifier", "trustee", "admin"] as const;
+export const ROLES = ["member", "volunteer", "verifier", "trustee", "admin", "super_admin", "owner"] as const;
 export type Role = (typeof ROLES)[number];
 
 export const CASE_CATEGORIES = ["welfare", "scholarship", "education_loan"] as const;
@@ -35,5 +35,13 @@ export type LoanStatus = (typeof LOAN_STATUSES)[number];
 export const KHUMS_DISCLAIMER = "Confirm with your Marja' or the Jamaat's alim.";
 export const DUMMY_PHONE = "+91 12345 67890";
 
-/** Staff roles may see full beneficiary detail. */
-export const isStaff = (r: Role) => r !== "member";
+/** Staff may see full beneficiary detail. Volunteers are not staff. */
+export const isStaff = (r: Role) => r !== "member" && r !== "volunteer";
+/** Admin-level: admin, super_admin, owner. */
+export const isAdminLike = (r: Role | undefined) => r === "admin" || r === "super_admin" || r === "owner";
+/** May open the dashboard: staff plus volunteers (who only see community and announcements). */
+export const canOpenDashboard = (r: Role) => r !== "member";
+/** Owner assigns any role; a super_admin assigns roles below super_admin only. */
+export const canAssignRole = (actor: Role, from: Role, to: Role) =>
+  actor === "owner" ||
+  (actor === "super_admin" && !["owner", "super_admin"].includes(from) && !["owner", "super_admin"].includes(to));

@@ -16,7 +16,7 @@ const db = getFirestore();
 exports.confirmPayment = onCall({ region: "asia-south1" }, async (req) => {
   if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
   const me = await db.doc(`members/${req.auth.uid}`).get();
-  if (me.get("role") !== "admin") throw new HttpsError("permission-denied", "Admins only.");
+  if (!["admin", "super_admin", "owner"].includes(me.get("role"))) throw new HttpsError("permission-denied", "Admins only.");
 
   const { kind, id } = req.data ?? {};
   if (!["donation", "repayment"].includes(kind) || typeof id !== "string") {

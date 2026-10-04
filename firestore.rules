@@ -8,8 +8,19 @@ service cloud.firestore {
     function signedIn() { return request.auth != null; }
     function me() { return get(/databases/$(database)/documents/members/$(request.auth.uid)).data; }
     function role() { return signedIn() ? me().role : 'none'; }
-    function isStaff() { return role() in ['verifier', 'trustee', 'admin']; }
-    function isAdmin() { return role() == 'admin'; }
+    // Roles: member < volunteer < verifier/trustee < admin < super_admin < owner.
+    // Staff may see beneficiary detail. Volunteers are NOT staff: community moderation and
+    // announcements only, no access to cases, loans, members or ledgers.
+    function isStaff() { return role() in ['verifier', 'trustee', 'admin', 'super_admin', 'owner']; }
+    function isAdmin() { return role() in ['admin', 'super_admin', 'owner']; }
+    function isMod() { return isStaff() || role() == 'volunteer'; }
+    // Only the owner may touch owner/super_admin; a super_admin assigns everything below that.
+    function canSetRole() {
+      return role() == 'owner'
+        || (role() == 'super_admin'
+            && !(request.resource.data.role in ['owner', 'super_admin'])
+            && !(resource.data.role in ['owner', 'super_admin']));
+    }
     function unchanged(f) { return request.resource.data[f] == resource.data[f]; }
 
     // ---- members: own doc readable; role/sadaat flag staff-only ----
@@ -20,7 +31,8 @@ service cloud.firestore {
         && request.resource.data.sadaatVerified == false;
       allow update: if signedIn() && request.auth.uid == uid
         && unchanged('role') && unchanged('sadaatVerified');
-      allow update: if isAdmin();
+      allow update: if isAdmin() && unchanged('role'); // e.g. verify Sadaat status
+      allow update: if canSetRole();
     }
 
     // ---- cases: applicant + staff only. Public cards come from publicCases (no PII). ----
@@ -108,7 +120,7 @@ service cloud.firestore {
         && request.resource.data.status == 'applied'
         && !('interest' in request.resource.data) && !('lateFee' in request.resource.data);
       // Disbursement requires prior two-sided EMI agreement.
-      allow update: if role() in ['trustee', 'admin']
+      allow update: if (role() == 'trustee' || isAdmin())
         && (request.resource.data.status != 'disbursed'
             || (resource.data.status == 'agreed' && resource.data.familyAccepted == true && resource.data.trusteeAccepted == true))
         && !('interest' in request.resource.data) && !('lateFee' in request.resource.data);
@@ -136,7 +148,7 @@ service cloud.firestore {
     }
     match /announcements/{id} {
       allow read: if true;
-      allow write: if isStaff();
+      allow write: if isMod();
     }
 
     // ---- community ----
@@ -144,14 +156,14 @@ service cloud.firestore {
     function conn(cid) { return get(/databases/$(database)/documents/communityConnections/$(cid)).data; }
 
     match /communityProfiles/{uid} {
-      allow read: if signedIn() && hasProfile() && (resource.data.listed == true || request.auth.uid == uid || isStaff());
+      allow read: if signedIn() && hasProfile() && (resource.data.listed == true || request.auth.uid == uid || isMod());
       allow create, update, delete: if signedIn() && request.auth.uid == uid;
-      allow update: if isStaff(); // moderation
+      allow update: if isMod(); // moderation
     }
     match /communityPosts/{id} {
       allow read: if signedIn() && hasProfile();
       allow create: if signedIn() && hasProfile() && request.resource.data.authorId == request.auth.uid;
-      allow update: if isStaff(); // moderation (remove/restore)
+      allow update: if isMod(); // moderation (remove/restore)
       allow delete: if signedIn() && resource.data.authorId == request.auth.uid;
       match /appreciations/{uid} {
         allow read: if signedIn() && hasProfile();
@@ -161,16 +173,16 @@ service cloud.firestore {
     match /communityOpportunities/{id} {
       allow read: if signedIn() && hasProfile();
       allow create: if signedIn() && hasProfile() && request.resource.data.authorId == request.auth.uid;
-      allow update: if isStaff();
+      allow update: if isMod();
       allow delete: if signedIn() && resource.data.authorId == request.auth.uid;
     }
     match /communityGroups/{id} {
       allow read: if signedIn() && hasProfile();
       allow create: if signedIn() && hasProfile() && request.resource.data.ownerId == request.auth.uid;
-      allow update: if isStaff() || (signedIn() && resource.data.ownerId == request.auth.uid);
+      allow update: if isMod() || (signedIn() && resource.data.ownerId == request.auth.uid);
       match /members/{uid} {
         // roster visible only to members of that group (and staff)
-        allow read: if signedIn() && (isStaff() || request.auth.uid == uid
+        allow read: if signedIn() && (isMod() || request.auth.uid == uid
           || exists(/databases/$(database)/documents/communityGroups/$(id)/members/$(request.auth.uid)));
         allow create: if signedIn() && hasProfile() && request.auth.uid == uid
           && request.resource.data.role == 'member'
@@ -207,7 +219,7 @@ service cloud.firestore {
     match /communityReports/{id} {
       allow create: if signedIn() && hasProfile() && request.resource.data.reporterId == request.auth.uid
         && request.resource.data.status == 'open';
-      allow read, update: if isStaff();
+      allow read, update: if isMod();
     }
   }
 }

@@ -2,7 +2,7 @@
 
 import { doc, updateDoc } from "firebase/firestore";
 import { useState } from "react";
-import { ROLES, type Role } from "@ks1j/shared";
+import { ROLES, canAssignRole, isAdminLike, type Role } from "@ks1j/shared";
 import { Table } from "@/components/Table";
 import { Banner, PageHeader } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
@@ -15,15 +15,21 @@ interface M {
   sadaatVerified: boolean;
 }
 
+const label = (r: string) => r.replace("_", " ");
+
 export default function AdminMembers() {
-  const { member } = useAuth();
+  const { user, member } = useAuth();
   const { rows, error } = useCollection<M>("members");
   const [msg, setMsg] = useState<string | null>(null);
-  const isAdmin = member?.role === "admin";
+  const isAdmin = isAdminLike(member?.role);
   const set = (id: string, patch: Partial<M>) => updateDoc(doc(db, "members", id), patch).catch((e) => setMsg((e as Error).message));
   return (
     <>
-      <PageHeader eyebrow="Committee dashboard" title="Members" intro="Only an admin can change roles or verify Sadaat status." />
+      <PageHeader
+        eyebrow="Committee dashboard"
+        title="Members"
+        intro="Admins verify Sadaat status. Only the owner and super admins change roles, and only the owner can touch owner or super admin."
+      />
       {msg && <Banner kind="error">{msg}</Banner>}
       <Table<M>
         rows={rows}
@@ -32,16 +38,18 @@ export default function AdminMembers() {
           { head: "Name", cell: (r) => r.fullName },
           {
             head: "Role",
-            cell: (r) =>
-              isAdmin ? (
-                <select className="rounded-lg border border-line bg-bg p-1" value={r.role} onChange={(e) => set(r.id, { role: e.target.value as Role })}>
-                  {ROLES.map((x) => (
-                    <option key={x}>{x}</option>
+            cell: (r) => {
+              const actor = member?.role;
+              const editable = actor && r.id !== user?.uid && canAssignRole(actor, r.role, r.role);
+              if (!editable) return <span className="capitalize">{label(r.role)}</span>;
+              return (
+                <select className="rounded-lg border border-line bg-bg p-1 capitalize" value={r.role} onChange={(e) => set(r.id, { role: e.target.value as Role })}>
+                  {ROLES.filter((x) => canAssignRole(actor, r.role, x)).map((x) => (
+                    <option key={x} value={x}>{label(x)}</option>
                   ))}
                 </select>
-              ) : (
-                r.role
-              ),
+              );
+            },
           },
           {
             head: "Sadaat verified",

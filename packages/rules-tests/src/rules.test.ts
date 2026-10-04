@@ -27,6 +27,9 @@ beforeEach(async () => {
     await m("tru1", "trustee");
     await m("tru2", "trustee");
     await m("adm", "admin");
+    await m("own", "owner");
+    await m("sup", "super_admin");
+    await m("vol", "volunteer");
     await setDoc(doc(db, "communityProfiles", "alice"), { listed: true });
     await setDoc(doc(db, "communityProfiles", "bob"), { listed: true });
     await setDoc(doc(db, "cases", "c1"), { applicantId: "alice", status: "submitted", beneficiarySadaatVerified: false });
@@ -46,8 +49,32 @@ describe("members", () => {
     await assertSucceeds(setDoc(doc(asUser("zed"), "members", "zed"), { fullName: "Z", role: "member", sadaatVerified: false }));
     await assertFails(setDoc(doc(asUser("yan"), "members", "yan"), { fullName: "Y", role: "admin", sadaatVerified: false }));
   });
-  it("admin can change roles", async () => {
-    await assertSucceeds(updateDoc(doc(asUser("adm"), "members", "bob"), { role: "verifier" }));
+  it("admins verify Sadaat status but cannot change roles", async () => {
+    await assertSucceeds(updateDoc(doc(asUser("adm"), "members", "bob"), { sadaatVerified: true }));
+    await assertFails(updateDoc(doc(asUser("adm"), "members", "bob"), { role: "verifier" }));
+  });
+  it("super_admin assigns roles below super_admin only", async () => {
+    await assertSucceeds(updateDoc(doc(asUser("sup"), "members", "bob"), { role: "admin" }));
+    await assertFails(updateDoc(doc(asUser("sup"), "members", "bob"), { role: "super_admin" }));
+    await assertFails(updateDoc(doc(asUser("sup"), "members", "own"), { role: "member" }));
+    await assertFails(updateDoc(doc(asUser("sup"), "members", "adm"), { role: "owner" }));
+  });
+  it("only the owner can create super_admins or touch the owner", async () => {
+    await assertSucceeds(updateDoc(doc(asUser("own"), "members", "bob"), { role: "super_admin" }));
+    await assertSucceeds(updateDoc(doc(asUser("own"), "members", "sup"), { role: "admin" }));
+  });
+  it("volunteers are not staff: no case, member or ledger access", async () => {
+    await assertFails(getDoc(doc(asUser("vol"), "cases", "c1")));
+    await assertFails(getDoc(doc(asUser("vol"), "members", "alice")));
+    await assertFails(updateDoc(doc(asUser("vol"), "members", "alice"), { role: "admin" }));
+    await assertFails(updateDoc(doc(asUser("vol"), "cases", "c1"), { status: "verified", verifiedBy: "vol" }));
+  });
+  it("volunteers can post announcements and moderate community content", async () => {
+    await assertSucceeds(addDoc(collection(asUser("vol"), "announcements"), { title: "Hi", body: "x" }));
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "communityPosts", "pp"), { authorId: "alice", body: "hi" });
+    });
+    await assertSucceeds(updateDoc(doc(asUser("vol"), "communityPosts", "pp"), { removed: true }));
   });
 });
 

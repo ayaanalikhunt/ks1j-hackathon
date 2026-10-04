@@ -2,7 +2,7 @@
 
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { useState } from "react";
-import { formatRupees } from "@ks1j/shared";
+import { formatRupees, isAdminLike } from "@ks1j/shared";
 import { Table } from "@/components/Table";
 import { Banner, Button, PageHeader } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
@@ -49,7 +49,7 @@ function PaymentTable({ kind, path }: { kind: "donation" | "repayment"; path: st
             head: "",
             cell: (r) =>
               r.status === "pending" &&
-              member?.role === "admin" && (
+              isAdminLike(member?.role) && (
                 <Button className="!min-h-9 !px-3" disabled={busy === r.id} onClick={() => run(r.id)}>
                   Confirm received
                 </Button>

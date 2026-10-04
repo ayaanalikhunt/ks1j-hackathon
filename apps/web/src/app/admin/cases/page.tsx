@@ -2,7 +2,7 @@
 
 import { doc, updateDoc } from "firebase/firestore";
 import { useState } from "react";
-import { canApprove, formatRupees } from "@ks1j/shared";
+import { canApprove, formatRupees, isAdminLike } from "@ks1j/shared";
 import { Table } from "@/components/Table";
 import { Banner, Button, PageHeader } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
@@ -76,7 +76,7 @@ export default function AdminCases() {
                     </Button>
                   </>
                 )}
-                {member?.role === "admin" && r.status === "approved" && (
+                {isAdminLike(member?.role) && r.status === "approved" && (
                   <Button className="!min-h-9 !px-3" onClick={() => act(r.id, { status: "disbursed" })}>
                     Mark disbursed
                   </Button>

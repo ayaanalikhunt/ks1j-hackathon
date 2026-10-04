@@ -2,6 +2,7 @@
 
 import { addDoc, collection, doc, updateDoc } from "firebase/firestore";
 import { useState } from "react";
+import { isAdminLike } from "@ks1j/shared";
 import { Table } from "@/components/Table";
 import { Banner, Button, Card, Field, PageHeader } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
@@ -20,7 +21,7 @@ export default function AdminInstitutions() {
   const [name, setName] = useState("");
   const [marja, setMarja] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
-  const isAdmin = member?.role === "admin";
+  const isAdmin = isAdminLike(member?.role);
   const guard = (p: Promise<unknown>) => p.catch((e) => setMsg((e as Error).message));
   return (
     <>

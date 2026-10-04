@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
-import { isStaff } from "@ks1j/shared";
+import { canOpenDashboard } from "@ks1j/shared";
 import { ThemeToggle } from "./ThemeToggle";
 
 export function SiteHeader() {
@@ -16,7 +16,7 @@ export function SiteHeader() {
         <nav className="flex flex-1 flex-wrap items-center gap-4 text-sm">
           <Link href="/cases">Cases</Link>
           <Link href="/contact">Contact</Link>
-          {member && isStaff(member.role) && <Link href="/admin">Dashboard</Link>}
+          {member && canOpenDashboard(member.role) && <Link href="/admin">Dashboard</Link>}
         </nav>
         {user ? (
           <button onClick={() => signOut()} className="text-sm underline">
