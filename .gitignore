@@ -61,3 +61,8 @@ apps/mobile/gradle-build.log
 # member web app is exported from apps/mobile, never hand-edited
 apps/web/public/member
 apps/mobile/dist
+
+# local emulator-only Razorpay test config
+functions/.env.local
+functions/.secret.local
+.webhook-secret.txt

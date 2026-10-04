@@ -14,6 +14,9 @@ export function SiteHeader() {
         <Brand />
         <nav className="flex flex-1 flex-wrap items-center gap-x-5 gap-y-1 text-sm font-semibold">
           <Link href="/cases">Cases</Link>
+          <Link href="/donate">Donate</Link>
+          <Link href="/transparency">Transparency</Link>
+          {user && <Link href="/donations">My donations</Link>}
           <Link href="/app">Get the app</Link>
           <Link href="/contact">Contact</Link>
           {member && canOpenDashboard(member.role) && <Link href="/admin">Dashboard</Link>}

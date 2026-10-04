@@ -361,6 +361,46 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ---- payments: written only by the functions ----
+    match /auditLogs/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /settings/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    // Donors read their own allocations and payouts. Recipient names and reference numbers sit in a staff-only subdocument.
+    match /allocations/{id} {
+      allow read: if signedIn() && (resource.data.donorId == request.auth.uid || isStaff());
+      allow write: if false;
+    }
+    match /disbursements/{id} {
+      allow read: if signedIn() && (resource.data.donorId == request.auth.uid || isStaff());
+      allow write: if false;
+      match /private/{doc} {
+        allow read: if isStaff();
+        allow write: if false;
+      }
+    }
+    match /notifications/{id} {
+      allow read: if signedIn() && resource.data.userId == request.auth.uid;
+      allow update: if signedIn() && resource.data.userId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow create, delete: if false;
+    }
+    match /payments/{id} {
+      allow read: if isStaff() || (signedIn() && resource.data.donorId == request.auth.uid);
+      allow write: if false;
+    }
+    match /fxRates/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /webhookEvents/{id} {
+      allow read, write: if false;
+    }
+
     // ---- helpdesk KB + announcements ----
     match /kbDocuments/{id} {
       allow read: if true;

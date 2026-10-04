@@ -29,18 +29,7 @@ function addMonths(date, months) {
 }
 const firstEmiDate = (courseEnd) => addMonths(courseEnd, GRACE_MONTHS);
 
-function caseEvent(tx, c, caseId, kind, actorId, note) {
-  tx.create(db.collection("caseEvents").doc(), {
-    caseId,
-    applicantId: c.applicantId,
-    caseNumber: c.number ?? null,
-    caseTitle: c.title ?? c.requirement ?? "",
-    kind,
-    actorId,
-    note: note ?? null,
-    at: FieldValue.serverTimestamp(),
-  });
-}
+const { settleDonation, audit } = require("./lib/settle");
 
 /**
  * Money never moves on the client. A staff admin confirms a pending donation or repayment
@@ -58,6 +47,14 @@ exports.confirmPayment = onCall(REGION, async (req) => {
   if (!COLLECTION[kind] || typeof id !== "string") {
     throw new HttpsError("invalid-argument", "kind must be donation, repayment or lawajam, and id a string.");
   }
+  if (kind === "donation") {
+    try {
+      await settleDonation(db, id, { source: "manual" }, uid);
+    } catch (e) {
+      throw new HttpsError(e.code === "not-found" ? "not-found" : "failed-precondition", e.message);
+    }
+    return { ok: true };
+  }
   const ref = db.doc(`${COLLECTION[kind]}/${id}`);
 
   await db.runTransaction(async (tx) => {
@@ -66,11 +63,6 @@ exports.confirmPayment = onCall(REGION, async (req) => {
     if (!snap.exists) throw new HttpsError("not-found", "No such payment.");
     const p = snap.data();
     if (p.status === "paid") return; // idempotent
-    const caseRef = kind === "donation" && p.caseId ? db.doc(`cases/${p.caseId}`) : null;
-    const caseSnap = caseRef ? await tx.get(caseRef) : null;
-    const cardRef = caseRef ? db.doc(`publicCases/pub-${p.caseId}`) : null;
-    const cardSnap = cardRef ? await tx.get(cardRef) : null;
-
     const loanRef = kind === "repayment" && p.loanId ? db.doc(`loans/${p.loanId}`) : null;
     const loanSnap = loanRef ? await tx.get(loanRef) : null;
     const recordRef = kind === "lawajam" ? db.doc(`lawajamRecords/${p.recordId}`) : null;
@@ -107,25 +99,6 @@ exports.confirmPayment = onCall(REGION, async (req) => {
         ...(instalments > 0 && loan.nextDue ? { nextDue: addMonths(loan.nextDue, instalments) } : {}),
       });
     }
-
-    if (kind === "donation" && p.institutionId) {
-      tx.update(db.doc(`institutions/${p.institutionId}`), { received: FieldValue.increment(p.amount) });
-    }
-
-    if (caseSnap?.exists) {
-      const c = caseSnap.data();
-      const raised = (c.raised ?? 0) + p.amount;
-      const funded = c.status === "published" && raised >= (c.amountRequested ?? Infinity);
-      tx.update(caseRef, { raised, ...(funded ? { status: "funded", fundedAt: FieldValue.serverTimestamp() } : {}) });
-      caseEvent(tx, c, p.caseId, "gift_received", uid);
-      if (funded) {
-        caseEvent(tx, c, p.caseId, "funded", "system");
-        // No longer open to donors.
-        if (cardSnap?.exists) tx.delete(cardRef);
-      } else if (cardSnap?.exists) {
-        tx.update(cardRef, { amountRaised: FieldValue.increment(p.amount) });
-      }
-    }
   });
   return { ok: true };
 });
@@ -157,7 +130,7 @@ exports.payOutCase = onCall(REGION, async (req) => {
       confirmedBy: uid,
     });
     tx.update(ref, { status: "disbursed", disbursedBy: uid, disbursedAt: FieldValue.serverTimestamp() });
-    caseEvent(tx, c, caseId, "paid_out", uid);
+    require("./lib/settle").caseEvent(db, tx, c, caseId, "paid_out", uid);
   });
   return { ok: true };
 });
@@ -262,3 +235,8 @@ exports.decideHardship = onCall(REGION, async (req) => {
   });
   return { ok: true };
 });
+
+// Razorpay needs secrets that exist only once the owner has set them, so it is opt-in per deploy (functions/.env).
+if (process.env.ENABLE_RAZORPAY === "true") Object.assign(exports, require("./razorpay"));
+
+Object.assign(exports, require("./allocation"));
