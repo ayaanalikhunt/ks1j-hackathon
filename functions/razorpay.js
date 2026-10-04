@@ -105,6 +105,7 @@ exports.createDonationOrder = onCall({ ...REGION, secrets: [KEY_SECRET] }, async
 
   let fund = "general";
   let caseId = null;
+  let institutionId = null;
   if (d.caseId) {
     const c = await db.doc(`cases/${d.caseId}`).get();
     if (!c.exists || c.get("status") !== "published") throw new HttpsError("failed-precondition", "That case is not open for donations.");
@@ -112,6 +113,12 @@ exports.createDonationOrder = onCall({ ...REGION, secrets: [KEY_SECRET] }, async
     const sadaat = c.get("beneficiarySadaatVerified") === true;
     fund = d.fund === "sehme_sadaat" ? "sehme_sadaat" : d.fund === "general" ? "general" : sadaat ? "sehme_sadaat" : "general";
     if (fund === "sehme_sadaat" && !sadaat) throw new HttpsError("failed-precondition", "Sehme Sadaat goes only to a verified Sadaat case.");
+  } else if (d.institutionId) {
+    // Sehme Imam goes only to an institution holding a verified ijazah from a Marja'.
+    const inst = await db.doc(`institutions/${d.institutionId}`).get();
+    if (!inst.exists || inst.get("ijazahVerified") !== true || inst.get("receiving") === false) throw new HttpsError("failed-precondition", "That institution cannot receive Sehme Imam.");
+    institutionId = d.institutionId;
+    fund = "sehme_imam";
   } else if (POOL_FUNDS.includes(d.fund)) {
     fund = d.fund;
   } else if (d.fund) {
@@ -147,6 +154,7 @@ exports.createDonationOrder = onCall({ ...REGION, secrets: [KEY_SECRET] }, async
       visibility,
       displayName: visibility === "public" && typeof d.displayName === "string" ? d.displayName.slice(0, 60) : null,
       caseId,
+      institutionId,
       fund,
       purpose,
       amount: q.donationInr,

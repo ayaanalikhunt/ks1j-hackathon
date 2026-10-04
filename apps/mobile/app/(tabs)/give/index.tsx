@@ -21,6 +21,8 @@ export default function Give() {
         <Body>{t("give.sadaat", { amount: formatRupees(sadaat) })}</Body>
         <Banner>{t("give.disclaimer")} {t("give.guideOnly")}</Banner>
       </Card>
+      <FeatureCard icon="heart" title="Donate" desc="Give to the general fund. Choose a purpose and see where it goes." href="/give/donate" />
+      <FeatureCard icon="file" title="My donations" desc="Receipts, and where each donation went." href="/give/donations" />
       <FeatureCard icon="calculator" title={t("give.calc.t")} desc={t("give.calc.d")} href="/give/khums" />
       <FeatureCard icon="shield" title={t("give.payImam.t")} desc={t("give.payImam.d")} href="/give/institutions" />
       <FeatureCard icon="heart" title={t("give.paySadaat.t")} desc={t("give.paySadaat.d")} href="/give/cases?filter=sadaat&fund=sehme_sadaat" />
