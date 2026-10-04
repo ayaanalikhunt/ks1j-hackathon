@@ -2,13 +2,12 @@ import { useLocalSearchParams } from "expo-router";
 import { where } from "firebase/firestore";
 import { useState } from "react";
 import { Share, View } from "react-native";
-import { PURPOSE_LABELS, donationStage, formatDate, formatRupees } from "@ks1j/shared";
+import { PURPOSE_LABELS, donationStage, formatDate, formatRupees, type MessageKey } from "@ks1j/shared";
 import { RequireAuth } from "@/components/RequireAuth";
 import { Banner, Body, Btn, Card, Heading, Screen } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { useCollection, useDocument } from "@/lib/firestore";
-
-const METHOD: Record<string, string> = { bank_transfer: "Bank transfer", upi: "UPI", cash: "Cash", direct_to_provider: "Paid directly to the provider", other: "Other" };
+import { useLang } from "@/lib/i18n";
 
 function Step({ done, title, children }: { done: boolean; title: string; children?: React.ReactNode }) {
   return (
@@ -25,17 +24,18 @@ function Step({ done, title, children }: { done: boolean; title: string; childre
 export default function DonationDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
+  const { t } = useLang();
   const uid = user?.uid ?? "";
   const d = useDocument(id ? `donations/${id}` : null);
   const allocs = useCollection(user && id ? "allocations" : null, [where("donationId", "==", id), where("donorId", "==", uid)], [id, uid]);
   const disbs = useCollection(user && id ? "disbursements" : null, [where("donationId", "==", id), where("donorId", "==", uid)], [id, uid]);
   const [shown, setShown] = useState(false);
 
-  if (d === undefined) return <RequireAuth eyebrow="Give" title="Donation"><Screen eyebrow="Give" title="Donation" /></RequireAuth>;
+  if (d === undefined) return <RequireAuth eyebrow={t("give.eyebrow")} title={t("md.donation")}><Screen eyebrow={t("give.eyebrow")} title={t("md.donation")} /></RequireAuth>;
   if (d === null)
     return (
-      <RequireAuth eyebrow="Give" title="Donation">
-        <Screen eyebrow="Give" title="Donation"><Banner>We could not find that donation.</Banner></Screen>
+      <RequireAuth eyebrow={t("give.eyebrow")} title={t("md.donation")}>
+        <Screen eyebrow={t("give.eyebrow")} title={t("md.donation")}><Banner>{t("dd.notFound")}</Banner></Screen>
       </RequireAuth>
     );
 
@@ -43,67 +43,73 @@ export default function DonationDetail() {
   const live = allocs.rows.filter((a) => a.status === "allocated");
   const complete = paid && (d.disbursedAmount ?? 0) >= d.amount;
   const proofPending = disbs.rows.some((x) => x.status === "completed" && x.proofStatus !== "verified");
+  const payment = paid ? t("dd.verified") : d.status === "refunded" ? t("dd.refunded") : t("dd.pending");
+  const method = (m: string) => (["bank_transfer", "upi", "cash", "direct_to_provider", "other"].includes(m) ? t(`dd.m.${m}` as MessageKey) : m);
   const receipt = [
-    "KS1J donation receipt",
-    `Reference: ${d.publicReference}`,
-    d.createdAt ? `Date: ${formatDate(d.createdAt.toDate())}` : "",
-    `Amount: ${formatRupees(d.amount)}${d.displayCurrency && d.displayCurrency !== "INR" ? ` (${d.displayAmount} ${d.displayCurrency})` : ""}`,
-    `Purpose: ${PURPOSE_LABELS[d.purpose] ?? "Donation"}`,
-    `Payment: ${paid ? "Verified" : d.status === "refunded" ? "Refunded" : "Pending"}`,
-    (d.allocatedAmount ?? 0) > 0 ? `Allocated: ${formatRupees(d.allocatedAmount)}` : "Allocation pending",
+    t("dd.receiptTitle"),
+    t("dd.reference", { value: d.publicReference }),
+    d.createdAt ? t("dd.date", { value: formatDate(d.createdAt.toDate()) }) : "",
+    t("dd.amount", { value: `${formatRupees(d.amount)}${d.displayCurrency && d.displayCurrency !== "INR" ? ` (${d.displayAmount} ${d.displayCurrency})` : ""}` }),
+    t("dd.purpose", { value: PURPOSE_LABELS[d.purpose] ?? t("md.donation") }),
+    t("dd.payment", { value: payment }),
+    (d.allocatedAmount ?? 0) > 0 ? t("dd.allocLine", { amount: formatRupees(d.allocatedAmount) }) : t("dd.allocPending"),
   ].filter(Boolean).join("\n");
 
   return (
-    <RequireAuth eyebrow="Give" title="Donation">
-      <Screen eyebrow={d.publicReference ?? "Donation"} title={formatRupees(d.amount)} intro={`${PURPOSE_LABELS[d.purpose] ?? "Donation"} · ${donationStage(d as unknown as Parameters<typeof donationStage>[0])}`}>
-        <Btn label="Where did my donation go?" onPress={() => setShown(!shown)} />
-        <Btn quiet label="Share receipt" onPress={() => Share.share({ message: receipt })} />
+    <RequireAuth eyebrow={t("give.eyebrow")} title={t("md.donation")}>
+      <Screen eyebrow={d.publicReference ?? t("md.donation")} title={formatRupees(d.amount)} intro={`${PURPOSE_LABELS[d.purpose] ?? t("md.donation")} · ${donationStage(d as unknown as Parameters<typeof donationStage>[0])}`}>
+        <Btn label={t("dd.where")} onPress={() => setShown(!shown)} />
+        <Btn quiet label={t("dd.share")} onPress={() => Share.share({ message: receipt })} />
 
         <Card>
-          <Heading>Receipt</Heading>
-          <Body>Reference: {d.publicReference}</Body>
-          {d.createdAt ? <Body>Date: {formatDate(d.createdAt.toDate())}</Body> : null}
-          <Body>Amount: {formatRupees(d.amount)}</Body>
-          {d.displayCurrency && d.displayCurrency !== "INR" ? <Body>Original: {d.displayAmount} {d.displayCurrency}</Body> : null}
-          <Body>Payment: {paid ? "Verified" : d.status === "refunded" ? "Refunded" : "Pending"}</Body>
-          <Body>{(d.allocatedAmount ?? 0) > 0 ? `${formatRupees(d.allocatedAmount)} allocated` : "Allocation pending"}</Body>
-          <Body muted>Zero interest, zero late fees. This shows only what the committee has recorded.</Body>
+          <Heading>{t("dd.receipt")}</Heading>
+          <Body>{t("dd.reference", { value: d.publicReference })}</Body>
+          {d.createdAt ? <Body>{t("dd.date", { value: formatDate(d.createdAt.toDate()) })}</Body> : null}
+          <Body>{t("dd.amount", { value: formatRupees(d.amount) })}</Body>
+          {d.displayCurrency && d.displayCurrency !== "INR" ? <Body>{t("dd.original", { value: `${d.displayAmount} ${d.displayCurrency}` })}</Body> : null}
+          <Body>{t("dd.payment", { value: payment })}</Body>
+          <Body>{(d.allocatedAmount ?? 0) > 0 ? t("dd.allocated", { amount: formatRupees(d.allocatedAmount) }) : t("dd.allocPending")}</Body>
+          <Body muted>{t("dd.zeroInterest")}</Body>
         </Card>
 
         {shown && (
           <Card>
-            <Heading>Where did my donation go?</Heading>
+            <Heading>{t("dd.where")}</Heading>
             {!paid ? (
-              <Body muted>This payment has not been verified yet, so nothing has been allocated.</Body>
+              <Body muted>{t("dd.notVerified")}</Body>
             ) : (
               <View style={{ gap: 14 }}>
-                <Step done title={`${formatRupees(d.amount)} donated and verified`} />
+                <Step done title={t("dd.donatedVerified", { amount: formatRupees(d.amount) })} />
                 {live.length === 0 ? (
-                  <Step done={false} title="Allocation pending">
-                    <Body muted>The committee has not allocated this donation yet. We never say it has helped someone before it has.</Body>
+                  <Step done={false} title={t("dd.allocPending")}>
+                    <Body muted>{t("dd.noAllocYet")}</Body>
                   </Step>
                 ) : (
                   live.map((a) => (
-                    <Step key={a.id} done title={`${formatRupees(a.amount)} allocated to ${a.caseRef ?? (a.caseNumber ? `Case #${a.caseNumber}` : "the committee's fund")}`}>
+                    <Step key={a.id} done title={t("dd.allocatedTo", { amount: formatRupees(a.amount), target: a.caseRef ?? (a.caseNumber ? t("dd.caseNo", { n: a.caseNumber }) : t("dd.committeeFund")) })}>
                       <Body muted>{PURPOSE_LABELS[a.category] ?? ""}</Body>
                       {disbs.rows
                         .filter((x) => x.status === "completed" && x.allocationId === a.id)
                         .map((x) => (
                           <Body key={x.id} muted>
-                            {formatRupees(x.amount)} paid out{x.completedAt ? ` on ${formatDate(x.completedAt.toDate())}` : ""} ({METHOD[x.method] ?? x.method}) ·{" "}
-                            {x.proofStatus === "verified" ? "proof verified by the committee" : "supporting documentation pending committee verification"}
+                            {t("dd.paidOutLine", {
+                              amount: formatRupees(x.amount),
+                              on: x.completedAt ? t("dd.on", { date: formatDate(x.completedAt.toDate()) }) : "",
+                              method: method(x.method),
+                              proof: x.proofStatus === "verified" ? t("dd.proofVerified") : t("dd.proofPending"),
+                            })}
                           </Body>
                         ))}
                     </Step>
                   ))
                 )}
-                <Step done={(d.disbursedAmount ?? 0) > 0} title={`${formatRupees(d.disbursedAmount ?? 0)} of ${formatRupees(d.amount)} paid out`} />
-                <Step done={complete && !proofPending} title={complete ? "Complete" : "In progress"}>
-                  {complete && proofPending ? <Body muted>Paid out in full. Supporting documentation is awaiting committee verification.</Body> : null}
+                <Step done={(d.disbursedAmount ?? 0) > 0} title={t("dd.paidOfTotal", { paid: formatRupees(d.disbursedAmount ?? 0), total: formatRupees(d.amount) })} />
+                <Step done={complete && !proofPending} title={complete ? t("dd.complete") : t("dd.inProgress")}>
+                  {complete && proofPending ? <Body muted>{t("dd.paidProofPending")}</Body> : null}
                 </Step>
               </View>
             )}
-            <Body muted>Family names, addresses and documents are private. A donation does not give access to a beneficiary&apos;s details.</Body>
+            <Body muted>{t("dd.private")}</Body>
           </Card>
         )}
       </Screen>

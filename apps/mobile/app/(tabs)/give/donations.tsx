@@ -6,9 +6,11 @@ import { RequireAuth } from "@/components/RequireAuth";
 import { Banner, Body, Btn, Card, Heading, Screen } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { useCollection } from "@/lib/firestore";
+import { useLang } from "@/lib/i18n";
 
 export default function MyDonations() {
   const { user } = useAuth();
+  const { t } = useLang();
   const uid = user?.uid ?? "";
   const gifts = useCollection(user ? "donations" : null, [where("payerId", "==", uid)], [uid]);
   const notes = useCollection(user ? "notifications" : null, [where("userId", "==", uid)], [uid]);
@@ -16,23 +18,23 @@ export default function MyDonations() {
   const updates = [...notes.rows].sort((a, b) => (b.at?.seconds ?? 9e9) - (a.at?.seconds ?? 9e9)).slice(0, 5);
 
   return (
-    <RequireAuth eyebrow="Give" title="My donations">
-      <Screen eyebrow="Give" title="My donations" intro="Every figure comes from the committee's verified records.">
+    <RequireAuth eyebrow={t("give.eyebrow")} title={t("md.title")}>
+      <Screen eyebrow={t("give.eyebrow")} title={t("md.title")} intro={t("md.intro")}>
         {gifts.error && <Banner error>{gifts.error}</Banner>}
-        {!gifts.loading && mine.length === 0 && <Banner>You have not made a donation yet.</Banner>}
+        {!gifts.loading && mine.length === 0 && <Banner>{t("md.none")}</Banner>}
         {mine.map((d) => (
           <Link key={d.id} href={{ pathname: "/give/donation", params: { id: d.id } }} asChild>
             <Pressable>
               <Card>
-                <Body muted>{d.publicReference ?? "Donation"}</Body>
+                <Body muted>{d.publicReference ?? t("md.donation")}</Body>
                 <Heading>{formatRupees(d.amount)}</Heading>
                 <Body>
-                  {PURPOSE_LABELS[d.purpose] ?? "Donation"}
+                  {PURPOSE_LABELS[d.purpose] ?? t("md.donation")}
                   {d.createdAt ? ` · ${formatDate(d.createdAt.toDate())}` : ""}
                 </Body>
                 <Body bold>{donationStage(d as unknown as Parameters<typeof donationStage>[0])}</Body>
                 <Body muted>
-                  Allocated {formatRupees(d.allocatedAmount ?? 0)} · Paid out {formatRupees(d.disbursedAmount ?? 0)}
+                  {t("md.allocPaid", { allocated: formatRupees(d.allocatedAmount ?? 0), paid: formatRupees(d.disbursedAmount ?? 0) })}
                 </Body>
               </Card>
             </Pressable>
@@ -40,7 +42,7 @@ export default function MyDonations() {
         ))}
         {updates.length > 0 && (
           <>
-            <Heading>Updates</Heading>
+            <Heading>{t("md.updates")}</Heading>
             {updates.map((n) => (
               <Card key={n.id}>
                 <Body>{n.text}</Body>
@@ -49,8 +51,8 @@ export default function MyDonations() {
             ))}
           </>
         )}
-        <Btn label="Donate again" onPress={() => router.push("/give/donate")} />
-        <Btn quiet label="Profile and notifications" onPress={() => router.push("/give/donor-profile")} />
+        <Btn label={t("md.again")} onPress={() => router.push("/give/donate")} />
+        <Btn quiet label={t("md.profile")} onPress={() => router.push("/give/donor-profile")} />
       </Screen>
     </RequireAuth>
   );
