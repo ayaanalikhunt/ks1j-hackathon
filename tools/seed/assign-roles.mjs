@@ -12,8 +12,8 @@ const auth = getAuth();
 const db = getFirestore();
 
 const PEOPLE = [
-  { email: "ayaanalikhunt@gmail.com", name: "Ayaan Ali Khunt", role: "owner" },
-  { email: "zamaanalishamji@gmail.com", name: "Zamaan Ali Shamji", role: "super_admin" },
+  { email: "ayaanalikhunt@gmail.com", name: "Ayaan Ali Khunt", role: "super_admin" },
+  { email: "zamaanalishamji@gmail.com", name: "Zamaan Ali Shamji", role: "owner" },
   { email: "mizankarim7070@gmail.com", name: "Mizaan Karim", role: "admin" },
   { email: "alyqsmdvj@gmail.com", name: "Aly Qasim Devji", role: "volunteer" },
   { email: "ifutguy@gmail.com", name: "", role: "member" },
