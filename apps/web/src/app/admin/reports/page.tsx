@@ -6,6 +6,7 @@ import { CASE_STATUS_LABELS, FUND_LABELS, NEED_CATEGORIES, PURPOSE_LABELS, csvRo
 import { Banner, Button, Card, Field, PageHeader } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { downloadText } from "@/lib/download";
+import { downloadReportPdf } from "@/lib/reportPdf";
 import { auth } from "@/lib/firebase";
 import { useCollection } from "@/lib/useCollection";
 
@@ -94,6 +95,17 @@ export default function Reports() {
     downloadText("ks1j-report.csv", [head, ...body].join("\n"));
   }
 
+  async function exportPdf() {
+    if (!r) return;
+    const label = (k: string, v: string) => (v ? `${k}: ${v}` : "");
+    const filters = [label("from", f.from), label("to", f.to), label("purpose", PURPOSE_LABELS[f.category] ?? f.category), label("status", f.status), label("currency", f.currency), label("case", f.caseRef), label("member", staff.rows.find((m) => m.id === f.memberId)?.fullName ?? "")].filter(Boolean).join(", ");
+    try {
+      await downloadReportPdf(r, filters);
+    } catch (e) {
+      setMsg((e as Error).message);
+    }
+  }
+
   if (member && !isAdminLike(member.role)) return <Banner kind="error">Reports are for admins.</Banner>;
   const t = r?.totals;
   const p = r?.pipeline;
@@ -119,7 +131,7 @@ export default function Reports() {
         <div className="mt-4 flex flex-wrap gap-2">
           <Button onClick={go} disabled={busy}>{busy ? "Running…" : "Run report"}</Button>
           {r && <Button className="!bg-card !text-[var(--fg)] border border-line" onClick={exportCsv}>Download CSV</Button>}
-          {r && <Button className="!bg-card !text-[var(--fg)] border border-line" onClick={() => window.print()}>Print</Button>}
+          {r && <Button className="!bg-card !text-[var(--fg)] border border-line" onClick={exportPdf}>Download PDF</Button>}
         </div>
         {msg && <div className="mt-3"><Banner kind="error">{msg}</Banner></div>}
         <p className="mt-3 text-xs text-muted">With a case selected, each donation counts only for the part allocated to that case. The committee-member filter matches who approved an allocation or paid out.</p>
