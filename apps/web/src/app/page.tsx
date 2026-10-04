@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { formatRupees } from "@ks1j/shared";
 import { CountUp } from "@/components/CountUp";
 import { PaperCollage, PhoneFan } from "@/components/HomeVisuals";
+import { LocationPrompt } from "@/components/LocationPrompt";
 import { SectionHead } from "@/components/SectionHead";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Card } from "@/components/ui";
@@ -50,6 +51,7 @@ export default function Home() {
   return (
     <div className="dark-scope">
       <SiteHeader />
+      <LocationPrompt />
       <main className="mx-auto max-w-5xl space-y-16 px-4 py-6 sm:space-y-24 sm:py-10">
         <section
           className="hero relative overflow-hidden rounded-[28px] px-6 py-12 text-white sm:px-12 sm:py-20"

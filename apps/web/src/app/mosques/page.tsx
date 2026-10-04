@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   buildAppleMapsUrl,
@@ -93,11 +93,17 @@ function Finder() {
   const [friday, setFriday] = useState(() => isFriday());
   const [showUnconfirmed, setShowUnconfirmed] = useState(false);
 
+  // arriving from the first-visit prompt ("Allow location"): ask once, straight away
+  const locate = params.get("locate") === "1";
+  useEffect(() => {
+    if (locate) void locateMe();
+  }, [locate]);
+
   const parsed = useMemo(() => extractMosqueQuery(submitted), [submitted]);
   const wantsFriday = friday || parsed.intent === "FIND_NEAREST_FRIDAY_MASJID";
   const needLocation = parsed.requiresLocation && !loc;
 
-  async function useLocation() {
+  async function locateMe() {
     setAsked(true);
     setLocError(null);
     try {
@@ -129,7 +135,7 @@ function Finder() {
             Allow location so KS1J can show nearby masajid and, on Friday, help you find the nearest confirmed Jummah. Your location is used once for this search and is not saved.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Button onClick={useLocation}>Allow location</Button>
+            <Button onClick={locateMe}>Allow location</Button>
             <button onClick={() => setAsked(true)} className="min-h-12 rounded-xl border border-line px-5 font-semibold">
               Not now
             </button>
@@ -147,7 +153,7 @@ function Finder() {
         <Field label="Search" value={text} onChange={(e) => setText(e.target.value)} placeholder="Name, area or city. For example: Dongri Shia masjid" />
         <div className="flex flex-wrap items-center gap-3">
           <Button type="submit">Search</Button>
-          <button type="button" onClick={useLocation} className="min-h-12 rounded-xl border border-line px-5 font-semibold">
+          <button type="button" onClick={locateMe} className="min-h-12 rounded-xl border border-line px-5 font-semibold">
             {loc ? "Update my location" : "Use my location"}
           </button>
           <label className="flex min-h-12 items-center gap-2">
