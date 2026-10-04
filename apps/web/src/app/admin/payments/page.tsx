@@ -13,11 +13,14 @@ interface Payment {
   amount: number;
   status: "pending" | "paid";
   fund?: string;
+  year?: string;
+  caseId?: string;
+  institutionId?: string;
 }
 
 const confirm = httpsCallable(getFunctions(auth.app, "asia-south1"), "confirmPayment");
 
-function PaymentTable({ kind, path }: { kind: "donation" | "repayment"; path: string }) {
+function PaymentTable({ kind, path }: { kind: "donation" | "repayment" | "lawajam"; path: string }) {
   const { member } = useAuth();
   const { rows, error } = useCollection<Payment>(path);
   const [msg, setMsg] = useState<string | null>(null);
@@ -43,7 +46,7 @@ function PaymentTable({ kind, path }: { kind: "donation" | "repayment"; path: st
         error={error}
         cols={[
           { head: "Amount", cell: (r) => formatRupees(r.amount) },
-          { head: "Fund", cell: (r) => r.fund ?? "repayment" },
+          { head: "For", cell: (r) => (kind === "lawajam" ? `Lawajam ${r.year ?? ""}` : r.fund === "sehme_imam" ? "Sehme Imam" : r.fund === "sehme_sadaat" ? "Sehme Sadaat" : r.fund === "general" ? "General donation" : "Loan repayment") },
           { head: "Status", cell: (r) => r.status },
           {
             head: "",
@@ -73,6 +76,8 @@ export default function AdminPayments() {
       <PaymentTable kind="donation" path="donations" />
       <h2 className="mb-2 mt-6 font-display text-2xl">Loan repayments</h2>
       <PaymentTable kind="repayment" path="repayments" />
+      <h2 className="mb-2 mt-6 font-display text-2xl">Lawajam</h2>
+      <PaymentTable kind="lawajam" path="lawajamPayments" />
     </>
   );
 }

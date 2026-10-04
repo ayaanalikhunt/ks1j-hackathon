@@ -179,3 +179,88 @@ describe("case lifecycle, end to end", () => {
     await expect(updateDoc(doc(member.db, "cases", caseId), { status: "submitted" })).rejects.toThrow();
   });
 });
+
+describe("lawajam dues and institution handovers", () => {
+  let finance: ReturnType<typeof client>;
+  let father: ReturnType<typeof client>;
+  let stranger: ReturnType<typeof client>;
+  let trustee: ReturnType<typeof client>;
+  const donor = client("donor-anon-2");
+  const year = "2026-27";
+  let instId = "";
+
+  beforeAll(async () => {
+    finance = await person("lw-finance", "admin");
+    father = await person("lw-father", "member");
+    stranger = await person("lw-stranger", "member");
+    trustee = await person("lw-trustee", "trustee");
+  });
+
+  it("members cannot link themselves to a household; an admin can", async () => {
+    await setDoc(doc(finance.db, "households", "h1"), { name: "Test household", area: "Andheri", createdBy: "lw-finance" });
+    await expect(updateDoc(doc(father.db, "members", "lw-father"), { householdId: "h1" })).rejects.toThrow();
+    await updateDoc(doc(finance.db, "members", "lw-father"), { householdId: "h1" });
+    expect((await getDoc(doc(father.db, "households", "h1"))).data()?.area).toBe("Andheri");
+    await expect(getDoc(doc(stranger.db, "households", "h1"))).rejects.toThrow();
+  });
+
+  it("an admin raises a due once per household per year", async () => {
+    const rec = { householdId: "h1", householdName: "Test household", area: "Andheri", year, amount: 1200, status: "due", createdBy: "lw-finance" };
+    await setDoc(doc(finance.db, "lawajamRecords", `h1_${year}`), rec);
+    await expect(setDoc(doc(finance.db, "lawajamRecords", `h1_${year}`), rec)).rejects.toThrow(); // already exists, no overwrite
+    await expect(setDoc(doc(finance.db, "lawajamRecords", "wrong-id"), rec)).rejects.toThrow();
+    await expect(setDoc(doc(trustee.db, "lawajamRecords", "h1_2027-28"), { ...rec, year: "2027-28" })).rejects.toThrow();
+  });
+
+  it("only the household can see and pay its due, for exactly the due amount", async () => {
+    expect((await getDoc(doc(father.db, "lawajamRecords", `h1_${year}`))).data()?.amount).toBe(1200);
+    await expect(getDoc(doc(stranger.db, "lawajamRecords", `h1_${year}`))).rejects.toThrow();
+    const pay = { recordId: `h1_${year}`, householdId: "h1", year, amount: 1200, payerId: "lw-father", status: "pending" };
+    await expect(addDoc(collection(father.db, "lawajamPayments"), { ...pay, amount: 100 })).rejects.toThrow();
+    await expect(addDoc(collection(father.db, "lawajamPayments"), { ...pay, status: "paid" })).rejects.toThrow();
+    await expect(addDoc(collection(stranger.db, "lawajamPayments"), { ...pay, payerId: "lw-stranger" })).rejects.toThrow();
+    await addDoc(collection(father.db, "lawajamPayments"), pay);
+  });
+
+  it("confirming the payment marks the household paid and writes the lawajam ledger row", async () => {
+    const pays = await getDocs(query(collection(finance.db, "lawajamPayments"), where("householdId", "==", "h1")));
+    await callable(finance, "confirmPayment")({ kind: "lawajam", id: pays.docs[0].id });
+    const rec = (await getDoc(doc(father.db, "lawajamRecords", `h1_${year}`))).data();
+    expect(rec?.status).toBe("paid");
+    const led = await adminDb().doc(`ledger/lawajam-${pays.docs[0].id}`).get();
+    expect(led.data()).toMatchObject({ fund: "lawajam", direction: "in", amount: 1200, householdId: "h1" });
+    // Already paid: no second payment can be started.
+    await expect(
+      addDoc(collection(father.db, "lawajamPayments"), { recordId: `h1_${year}`, householdId: "h1", year, amount: 1200, payerId: "lw-father", status: "pending" }),
+    ).rejects.toThrow();
+  });
+
+  it("sehme imam: gifts build up what is held for a verified institution", async () => {
+    const ref = await addDoc(collection(finance.db, "institutions"), { name: "Test Hawza", city: "Mumbai", marja: "Test Marja", ijazahVerified: true });
+    instId = ref.id;
+    await expect(addDoc(collection(finance.db, "institutions"), { name: "Cheat", ijazahVerified: true, received: 99999 })).rejects.toThrow();
+    await expect(updateDoc(doc(finance.db, "institutions", instId), { received: 99999 })).rejects.toThrow();
+    const d = await addDoc(collection(donor.db, "donations"), { fund: "sehme_imam", institutionId: instId, amount: 1000, status: "pending", payerId: null });
+    await callable(finance, "confirmPayment")({ kind: "donation", id: d.id });
+    expect((await getDoc(doc(finance.db, "institutions", instId))).data()?.received).toBe(1000);
+  });
+
+  it("a handover cannot exceed what is held, and only an admin can record one", async () => {
+    await expect(callable(trustee, "recordHandover")({ institutionId: instId, amount: 100, reference: "NEFT-1" })).rejects.toThrow(/Admins only|permission/i);
+    await expect(callable(finance, "recordHandover")({ institutionId: instId, amount: 1500, reference: "NEFT-1" })).rejects.toThrow(/held/i);
+    await expect(callable(finance, "recordHandover")({ institutionId: instId, amount: 600, reference: "x" })).rejects.toThrow(/required|invalid/i);
+    await callable(finance, "recordHandover")({ institutionId: instId, amount: 600, reference: "NEFT-DEMO-001" });
+    expect((await getDoc(doc(finance.db, "institutions", instId))).data()?.handedOver).toBe(600);
+    await expect(callable(finance, "recordHandover")({ institutionId: instId, amount: 500, reference: "NEFT-DEMO-002" })).rejects.toThrow(/held/i); // only 400 left
+    await callable(finance, "recordHandover")({ institutionId: instId, amount: 400, reference: "NEFT-DEMO-003" });
+    const out = await adminDb().collection("ledger").where("institutionId", "==", instId).where("direction", "==", "out").get();
+    expect(out.size).toBe(2);
+    expect(out.docs.every((x) => x.data().fund === "sehme_imam")).toBe(true);
+  });
+
+  it("an institution without a verified ijazah can neither take gifts nor receive a handover", async () => {
+    const ref = await addDoc(collection(finance.db, "institutions"), { name: "Unverified", ijazahVerified: false });
+    await expect(addDoc(collection(donor.db, "donations"), { fund: "sehme_imam", institutionId: ref.id, amount: 100, status: "pending", payerId: null })).rejects.toThrow();
+    await expect(callable(finance, "recordHandover")({ institutionId: ref.id, amount: 1, reference: "NEFT-9" })).rejects.toThrow();
+  });
+});

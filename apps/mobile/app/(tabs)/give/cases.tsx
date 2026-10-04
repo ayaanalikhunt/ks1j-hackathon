@@ -1,4 +1,4 @@
-import { Link } from "expo-router";
+import { Link, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { CASE_TYPE_LABELS, formatRupees, type CaseType } from "@ks1j/shared";
@@ -13,7 +13,8 @@ const FILTERS = [
 
 export default function Cases() {
   const { rows, loading, error } = useCollection("publicCases");
-  const [filter, setFilter] = useState<(typeof FILTERS)[number][0]>("all");
+  const params = useLocalSearchParams<{ filter?: string; fund?: string }>();
+  const [filter, setFilter] = useState<(typeof FILTERS)[number][0]>(params.filter === "sadaat" || params.filter === "other" ? params.filter : "all");
   const shown = rows.filter((c) => filter === "all" || (filter === "sadaat" ? c.sadaat : !c.sadaat));
   return (
     <Screen eyebrow="Give" title="Support a case" intro="Verified needs, approved by two Jamaat admins. Names and contact details are never shown.">
@@ -25,7 +26,7 @@ export default function Cases() {
       {error && <Banner error>{error}</Banner>}
       {!loading && shown.length === 0 && <Banner>No open cases right now.</Banner>}
       {shown.map((c) => (
-        <Link key={c.id} href={{ pathname: "/give/case", params: { id: c.id } }} asChild>
+        <Link key={c.id} href={{ pathname: "/give/case", params: { id: c.id, fund: params.fund ?? "" } }} asChild>
           <Pressable>
             <Card>
               <Body bold>

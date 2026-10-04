@@ -2,7 +2,7 @@
 
 import { addDoc, collection, doc, updateDoc } from "firebase/firestore";
 import { useState } from "react";
-import { isAdminLike } from "@ks1j/shared";
+import { formatRupees, isAdminLike } from "@ks1j/shared";
 import { Table } from "@/components/Table";
 import { Banner, Button, Card, Field, PageHeader } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
@@ -13,6 +13,8 @@ interface Institution {
   name: string;
   marja?: string;
   ijazahVerified: boolean;
+  received?: number;
+  handedOver?: number;
 }
 
 export default function AdminInstitutions() {
@@ -51,6 +53,8 @@ export default function AdminInstitutions() {
           { head: "Name", cell: (r) => r.name },
           { head: "Marja'", cell: (r) => r.marja ?? "" },
           { head: "Ijazah verified", cell: (r) => (r.ijazahVerified ? "Yes" : "No") },
+          { head: "Received", cell: (r) => formatRupees(r.received ?? 0) },
+          { head: "Held", cell: (r) => formatRupees((r.received ?? 0) - (r.handedOver ?? 0)) },
           {
             head: "Action",
             cell: (r) =>

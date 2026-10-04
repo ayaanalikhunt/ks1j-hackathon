@@ -9,12 +9,12 @@ import { db } from "@/lib/firebase";
 import { useDocument } from "@/lib/firestore";
 
 export default function CaseGive() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, fund: wantedFund } = useLocalSearchParams<{ id: string; fund?: string }>();
   const { user } = useAuth();
   const c = useDocument(`publicCases/${id}`);
   const [amount, setAmount] = useState("500");
   // A Sadaat case can take Sehme Sadaat or a general gift. Any other case takes general gifts only.
-  const [fund, setFund] = useState<"general" | "sehme_sadaat">("general");
+  const [fund, setFund] = useState<"general" | "sehme_sadaat">(wantedFund === "sehme_sadaat" ? "sehme_sadaat" : "general");
   const [msg, setMsg] = useState<string | null>(null);
 
   async function give() {

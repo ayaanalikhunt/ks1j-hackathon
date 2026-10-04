@@ -24,3 +24,24 @@ export function emiSchedule(principal: number, months: number): number[] {
   const extra = principal - base * months;
   return Array.from({ length: months }, (_, i) => base + (i < extra ? 1 : 0));
 }
+
+/** Khums is divided equally: half to Sehme Imam, half to Sehme Sadaat. Whole rupees, and the two always add back to the total. */
+export function khumsSplit(due: number): { imam: number; sadaat: number } {
+  if (!Number.isInteger(due) || due < 0) throw new Error("due must be a non-negative integer");
+  const imam = Math.ceil(due / 2);
+  return { imam, sadaat: due - imam };
+}
+
+/** One row of a CSV for Excel. Quotes fields that need it, and defuses spreadsheet formulas. */
+export function csvRow(cells: (string | number | null | undefined)[]): string {
+  return cells
+    .map((c) => {
+      let s = c == null ? "" : String(c);
+      if (/^[=+\-@]/.test(s) && Number.isNaN(Number(s))) s = `'${s}`; // formula injection
+      return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    })
+    .join(",");
+}
+
+export const toCsv = (header: string[], rows: (string | number | null | undefined)[][]) =>
+  [csvRow(header), ...rows.map(csvRow)].join("\r\n");

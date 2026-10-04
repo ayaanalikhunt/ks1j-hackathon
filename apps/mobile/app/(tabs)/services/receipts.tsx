@@ -1,27 +1,53 @@
 import { where } from "firebase/firestore";
-import { formatRupees } from "@ks1j/shared";
+import { Share } from "react-native";
+import { FUND_LABELS, formatRupees } from "@ks1j/shared";
 import { RequireAuth } from "@/components/RequireAuth";
-import { Banner, Body, Card, Screen } from "@/components/ui";
+import { Banner, Body, Btn, Card, Screen } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { useCollection } from "@/lib/firestore";
 
-const FUND: Record<string, string> = { sehme_sadaat: "Sehme Sadaat", sehme_imam: "Sehme Imam", general: "General" };
+interface Receipt {
+  id: string;
+  what: string;
+  amount: number;
+  paid: boolean;
+  at: number;
+}
+
+const dateOf = (s?: { seconds: number }) => (s ? new Date(s.seconds * 1000).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric" }) : "");
 
 export default function Receipts() {
-  const { user } = useAuth();
+  const { user, member } = useAuth();
   const uid = user?.uid ?? "";
-  const { rows, error } = useCollection(user ? "donations" : null, [where("payerId", "==", uid)], [uid]);
+  const gifts = useCollection(user ? "donations" : null, [where("payerId", "==", uid)], [uid]);
+  const dues = useCollection(user ? "lawajamPayments" : null, [where("payerId", "==", uid)], [uid]);
+  const error = gifts.error ?? dues.error;
+
+  const all: Receipt[] = [
+    ...gifts.rows.map((d) => ({ id: d.id, what: FUND_LABELS[d.fund] ?? d.fund, amount: d.amount, paid: d.status === "paid", at: d.createdAt?.seconds ?? 0, date: dateOf(d.createdAt) })),
+    ...dues.rows.map((d) => ({ id: d.id, what: `Lawajam ${d.year}`, amount: d.amount, paid: d.status === "paid", at: d.createdAt?.seconds ?? 0, date: dateOf(d.createdAt) })),
+  ]
+    .map((r) => r as Receipt & { date: string })
+    .sort((a, b) => b.at - a.at);
+
+  // A receipt is only a receipt once the office has confirmed the money. Until then it is a pledge.
+  const share = (r: Receipt & { date: string }) =>
+    Share.share({
+      message: `KS1J receipt\nReceipt no: ${r.id.slice(0, 8).toUpperCase()}\nFor: ${r.what}\nAmount: ${formatRupees(r.amount)}\nFrom: ${member?.fullName ?? ""}\nDate: ${r.date}\nReceived with thanks by the Jamaat.`,
+    });
+
   return (
     <RequireAuth eyebrow="Services" title="Receipts">
-      <Screen eyebrow="Services" title="Receipts" intro="A gift shows as pending until the payment is confirmed.">
+      <Screen eyebrow="Services" title="Receipts" intro="A gift shows as pending until the office confirms the payment. Then you can share your receipt.">
         {error && <Banner error>{error}</Banner>}
-        {rows.length === 0 && <Banner>No donations yet.</Banner>}
-        {rows.map((d) => (
-          <Card key={d.id}>
-            <Body bold>{formatRupees(d.amount)}</Body>
+        {all.length === 0 && <Banner>No payments yet.</Banner>}
+        {all.map((r) => (
+          <Card key={r.id}>
+            <Body bold>{formatRupees(r.amount)}</Body>
             <Body muted>
-              {FUND[d.fund] ?? d.fund} · {d.status === "paid" ? "Received" : "Pending"}
+              {r.what} · {r.paid ? "Received" : "Pending"} · {(r as Receipt & { date: string }).date}
             </Body>
+            {r.paid && <Btn quiet label="Share receipt" onPress={() => share(r as Receipt & { date: string })} />}
           </Card>
         ))}
       </Screen>

@@ -10,6 +10,7 @@ import { db } from "@/lib/firebase";
 import { useCollection } from "@/lib/useCollection";
 
 interface M {
+  householdId?: string;
   fullName: string;
   role: Role;
   sadaatVerified: boolean;
@@ -20,6 +21,7 @@ const label = (r: string) => r.replace("_", " ");
 export default function AdminMembers() {
   const { user, member } = useAuth();
   const { rows, error } = useCollection<M>("members");
+  const households = useCollection<{ name: string; area: string }>("households");
   const [msg, setMsg] = useState<string | null>(null);
   const isAdmin = isAdminLike(member?.role);
   const set = (id: string, patch: Partial<M>) => updateDoc(doc(db, "members", id), patch).catch((e) => setMsg((e as Error).message));
@@ -46,6 +48,22 @@ export default function AdminMembers() {
                 <select className="rounded-lg border border-line bg-bg p-1 capitalize" value={r.role} onChange={(e) => set(r.id, { role: e.target.value as Role })}>
                   {ROLES.filter((x) => canAssignRole(actor, r.role, x)).map((x) => (
                     <option key={x} value={x}>{label(x)}</option>
+                  ))}
+                </select>
+              );
+            },
+          },
+          {
+            head: "Household",
+            cell: (r) => {
+              const current = households.rows.find((h) => h.id === r.householdId);
+              if (!isAdmin) return current ? `${current.name} (${current.area})` : "Not linked";
+              // Linking is how a member gets to see and pay their household's Lawajam.
+              return (
+                <select className="rounded-lg border border-line bg-bg p-1" value={r.householdId ?? ""} onChange={(e) => set(r.id, { householdId: e.target.value } as Partial<M>)}>
+                  <option value="">Not linked</option>
+                  {households.rows.map((h) => (
+                    <option key={h.id} value={h.id}>{h.name} ({h.area})</option>
                   ))}
                 </select>
               );

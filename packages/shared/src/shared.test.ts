@@ -1,5 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { canApprove, emiSchedule, formatRupees, initials, isDonationAllowed, khumsDue, splitList, timeAgo } from "./index";
+import {
+  canApprove,
+  csvRow,
+  emiSchedule,
+  formatRupees,
+  initials,
+  isDonationAllowed,
+  khumsDue,
+  khumsSplit,
+  lawajamYear,
+  splitList,
+  timeAgo,
+  toCsv,
+} from "./index";
 
 describe("money", () => {
   it("formats Indian grouping", () => {
@@ -16,6 +29,28 @@ describe("money", () => {
     const s = emiSchedule(100000, 7);
     expect(s.reduce((a, b) => a + b, 0)).toBe(100000);
     expect(s).toHaveLength(7);
+  });
+});
+
+describe("khums, lawajam and exports", () => {
+  it("splits khums into two halves that add back to the total", () => {
+    for (const due of [0, 1, 7, 20000, 33333]) {
+      const s = khumsSplit(due);
+      expect(s.imam + s.sadaat).toBe(due);
+      expect(Math.abs(s.imam - s.sadaat)).toBeLessThanOrEqual(1);
+    }
+    expect(() => khumsSplit(-1)).toThrow();
+  });
+  it("lawajam year follows the April to March financial year in IST", () => {
+    expect(lawajamYear(new Date("2026-10-04T00:00:00Z"))).toBe("2026-27");
+    expect(lawajamYear(new Date("2027-03-31T10:00:00Z"))).toBe("2026-27");
+    expect(lawajamYear(new Date("2027-03-31T19:00:00Z"))).toBe("2027-28"); // already 1 April in IST
+    expect(lawajamYear(new Date("2026-03-15T00:00:00Z"))).toBe("2025-26");
+  });
+  it("csv quotes commas and quotes, and defuses spreadsheet formulas", () => {
+    expect(csvRow(["a,b", 'say "hi"', 5, null])).toBe('"a,b","say ""hi""",5,');
+    expect(csvRow(["=SUM(A1)", "-5", "+91 12345"])).toBe("'=SUM(A1),-5,'+91 12345");
+    expect(toCsv(["x", "y"], [[1, 2]])).toBe("x,y\r\n1,2");
   });
 });
 
