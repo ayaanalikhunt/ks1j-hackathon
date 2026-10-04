@@ -123,7 +123,7 @@ function Picker({ onPick, onCompare }: { onPick: (m: AskMarja) => void; onCompar
                 {m.knownFor.map((k) => <li key={k} className="rounded-full bg-brand/10 px-2.5 py-1 text-xs font-medium">{k}</li>)}
               </ul>
               <div className="mt-auto flex items-center gap-2 pt-4">
-                <Button className="flex-1" onClick={() => onPick(m)}>Ask {m.name.split(" ").slice(-1)[0]}</Button>
+                <Button className="flex-1" onClick={() => onPick(m)}>Ask {m.name.replace("Ayatollah ", "")}</Button>
                 <a href={m.website} target="_blank" rel="noreferrer" aria-label={`Official website of ${m.honorific}`} title={`Official website: ${m.websiteLabel}`} className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-line text-muted hover:text-brand">↗</a>
               </div>
             </div>

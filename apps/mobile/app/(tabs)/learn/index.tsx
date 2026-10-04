@@ -12,6 +12,7 @@ export default function Learn() {
   const pending = useCollection(user ? "communityConnections" : null, [where("toId", "==", uid), where("status", "==", "pending")], [uid]);
   return (
     <Screen hero eyebrow={t("learn.eyebrow")} title={t("learn.title")} intro={t("learn.intro")}>
+      <FeatureCard icon="star" title="Ask AI Guide" desc="Everyday rulings in plain words, in your language. Or say what you need, like “donation kholo”." href="/learn/ask" />
       <FeatureCard icon="help" title={t("learn.helpdesk.t")} desc={t("learn.helpdesk.d")} href="/learn/helpdesk" />
       <Heading>{t("learn.community")}</Heading>
       <FeatureCard icon="news" title={t("learn.feed.t")} desc={t("learn.feed.d")} href="/community/feed" />
