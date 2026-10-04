@@ -29,7 +29,7 @@ function CaseDocs({ id, c }: { id: string; c: any }) {
   const [show, setShow] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const have = new Set(docs.rows.map((d) => d.kind));
-  const missing = requiredDocs(c.type).filter((k) => !have.has(k));
+  const missing = requiredDocs(c.type, c.idProofType).filter((k) => !have.has(k));
 
   async function add(kind: DocKind) {
     setErr(null);

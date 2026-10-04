@@ -45,14 +45,24 @@ service cloud.firestore {
       allow create: if signedIn() && request.resource.data.applicantId == request.auth.uid
         && request.resource.data.status in ['draft', 'submitted']
         && !('verifiedBy' in request.resource.data) && !('approvedBy' in request.resource.data)
-        && request.resource.data.get('beneficiarySadaatVerified', false) == false; // staff-only flag
+        && request.resource.data.get('beneficiarySadaatVerified', false) == false // staff-only flag
+        // Identity proof: "none" is a legitimate answer, but it needs a reason. Everything the committee decides stays staff-only.
+        && request.resource.data.get('idProofType', 'aadhaar') in ['aadhaar', 'pan', 'passport', 'driving_licence', 'voter_id', 'ration_card', 'other', 'none']
+        && (request.resource.data.get('idProofType', 'aadhaar') != 'none' || request.resource.data.get('noIdReason', '') in ['no_government_id', 'document_lost', 'minor', 'emergency', 'displaced', 'privacy', 'unable_to_obtain', 'other'])
+        && request.resource.data.get('verificationStatus', 'pending_review') == 'pending_review'
+        && request.resource.data.get('priority', 'normal') == 'normal'
+        && !('emergencyException' in request.resource.data) && !('verificationMethod' in request.resource.data)
+        && !('zakatEligible' in request.resource.data) && !('khumsEligible' in request.resource.data)
+        && request.resource.data.get('publicCaseId', 'CASE-2000-000000').matches('^CASE-20[0-9][0-9]-[0-9]{6}$');
       // applicant may edit own draft only
       allow update: if signedIn() && resource.data.applicantId == request.auth.uid
         && resource.data.status == 'draft'
         && request.resource.data.status in ['draft', 'submitted']
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
              'applicantId', 'verifiedBy', 'verifiedAt', 'approvedBy', 'approvedAt', 'declinedBy', 'declinedAt',
-             'declineReason', 'declineNote', 'disbursedBy', 'disbursedAt', 'beneficiarySadaatVerified']);
+             'declineReason', 'declineNote', 'disbursedBy', 'disbursedAt', 'beneficiarySadaatVerified',
+             'priority', 'emergencyException', 'verificationMethod', 'verificationNotes', 'verificationBy', 'verificationAt',
+             'verificationStatus', 'zakatEligible', 'khumsEligible', 'publicCaseId']);
       // Each staff transition may touch only the fields it owns.
       // Rule 1: whoever verifies is never the person who approves.
       allow update: if (role() == 'verifier' || isAdmin()) && resource.data.status == 'submitted'
@@ -62,6 +72,10 @@ service cloud.firestore {
       allow update: if (role() == 'trustee' || isAdmin()) && resource.data.status == 'verified'
         && request.resource.data.status == 'approved'
         && resource.data.verifiedBy != request.auth.uid
+        // No ID is not a rejection, but it must be cleared another way (or by a recorded emergency exception) before approval.
+        && (resource.data.get('idProofType', 'aadhaar') != 'none'
+            || resource.data.get('emergencyException', null) != null
+            || resource.data.get('verificationMethod', 'none_available') != 'none_available')
         && request.resource.data.approvedBy == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'approvedBy', 'approvedAt']);
       // Publish: a trustee or admin opens an approved case to donors.
@@ -82,6 +96,30 @@ service cloud.firestore {
         && request.resource.data.status == 'closed'
         && request.resource.data.closedBy == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'closedBy', 'closedAt']);
+      // Alternative verification for someone with no ID proof.
+      allow update: if isStaff() && resource.data.status in ['submitted', 'verified', 'approved']
+        && resource.data.get('idProofType', 'aadhaar') == 'none'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['verificationMethod', 'verificationNotes', 'verificationBy', 'verificationAt', 'verificationStatus'])
+        && request.resource.data.verificationMethod in ['committee_interview', 'home_visit', 'authorized_representative', 'reference_check', 'institution_document', 'school_verification', 'hospital_verification', 'local_organization', 'other', 'none_available']
+        && request.resource.data.verificationBy == request.auth.uid
+        && request.resource.data.verificationStatus in ['pending_review', 'verified', 'rejected'];
+      // Priority and the need category are the committee's call.
+      allow update: if isStaff() && resource.data.status in ['submitted', 'verified', 'approved', 'published']
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['priority', 'needCategory'])
+        && request.resource.data.get('priority', 'normal') in ['low', 'normal', 'high', 'urgent']
+        && request.resource.data.get('needCategory', 'other') is string;
+      // Emergency exception: a trustee or admin approves it, with a reason. It speeds the review; it removes no financial control.
+      allow update: if (role() == 'trustee' || isAdmin()) && resource.data.status in ['submitted', 'verified', 'approved']
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['emergencyException', 'priority'])
+        && request.resource.data.emergencyException.keys().hasOnly(['reason', 'approvedBy', 'at'])
+        && request.resource.data.emergencyException.approvedBy == request.auth.uid
+        && request.resource.data.emergencyException.reason is string && request.resource.data.emergencyException.reason.size() >= 5
+        && request.resource.data.emergencyException.at == request.time
+        && request.resource.data.get('priority', 'urgent') in ['high', 'urgent'];
+      // Which restricted funds a case may receive is a committee determination.
+      allow update: if (role() == 'trustee' || isAdmin()) && resource.data.status in ['submitted', 'verified', 'approved', 'published']
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['zakatEligible', 'khumsEligible'])
+        && request.resource.data.get('zakatEligible', false) is bool && request.resource.data.get('khumsEligible', false) is bool;
       // Sadaat status is staff-only and is set before payout.
       allow update: if isStaff() && resource.data.status in ['submitted', 'verified', 'approved']
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['beneficiarySadaatVerified']);
@@ -91,7 +129,7 @@ service cloud.firestore {
         allow create: if signedIn()
           && get(/databases/$(database)/documents/cases/$(id)).data.applicantId == request.auth.uid
           && get(/databases/$(database)/documents/cases/$(id)).data.status in ['draft', 'submitted', 'verified', 'approved']
-          && request.resource.data.kind in ['aadhaar', 'address_proof', 'income_proof', 'fee_receipt', 'mark_sheet', 'medical_report', 'other']
+          && request.resource.data.kind in ['aadhaar', 'address_proof', 'income_proof', 'fee_receipt', 'mark_sheet', 'medical_report', 'pan', 'passport', 'driving_licence', 'voter_id', 'ration_card', 'other']
           && request.resource.data.dataUrl is string
           && request.resource.data.dataUrl.matches('^data:image/(jpeg|png);base64,.*')
           && request.resource.data.dataUrl.size() < 900000
@@ -99,7 +137,7 @@ service cloud.firestore {
         // Staff can add a document the family brought to the office, and say who added it.
         allow create: if isStaff()
           && get(/databases/$(database)/documents/cases/$(id)).data.status in ['submitted', 'verified', 'approved']
-          && request.resource.data.kind in ['aadhaar', 'address_proof', 'income_proof', 'fee_receipt', 'mark_sheet', 'medical_report', 'other']
+          && request.resource.data.kind in ['aadhaar', 'address_proof', 'income_proof', 'fee_receipt', 'mark_sheet', 'medical_report', 'pan', 'passport', 'driving_licence', 'voter_id', 'ration_card', 'other']
           && request.resource.data.dataUrl is string
           && request.resource.data.dataUrl.matches('^data:image/(jpeg|png);base64,.*')
           && request.resource.data.dataUrl.size() < 900000
@@ -110,12 +148,20 @@ service cloud.firestore {
       }
     }
 
+    // ---- need categories: a built-in list lives in the apps; the committee can add more here ----
+    match /caseCategories/{id} {
+      allow read: if signedIn();
+      allow create, update: if isAdmin() && request.resource.data.keys().hasOnly(['label', 'active', 'createdBy'])
+        && request.resource.data.label is string && request.resource.data.label.size() >= 2 && request.resource.data.label.size() <= 40;
+      allow delete: if isAdmin();
+    }
+
     // ---- public case cards: PII-free projection, server-written, world-readable ----
     // Written by an admin only, and only these PII-free keys.
     match /publicCases/{id} {
       allow read: if true;
       allow create, update: if (role() == 'trustee' || isAdmin())
-        && request.resource.data.keys().hasOnly(['category', 'type', 'number', 'title', 'sadaat', 'description', 'amountNeeded', 'amountRaised', 'caseId']);
+        && request.resource.data.keys().hasOnly(['category', 'type', 'number', 'title', 'sadaat', 'description', 'amountNeeded', 'amountRaised', 'caseId', 'publicCaseId', 'needCategory', 'priority', 'emergency']);
       allow delete: if role() == 'trustee' || isAdmin();
     }
 

@@ -109,7 +109,9 @@ exports.createDonationOrder = onCall({ ...REGION, secrets: [KEY_SECRET] }, async
     const c = await db.doc(`cases/${d.caseId}`).get();
     if (!c.exists || c.get("status") !== "published") throw new HttpsError("failed-precondition", "That case is not open for donations.");
     caseId = d.caseId;
-    fund = c.get("fund") ?? (c.get("beneficiarySadaatVerified") ? "sehme_sadaat" : "general");
+    const sadaat = c.get("beneficiarySadaatVerified") === true;
+    fund = d.fund === "sehme_sadaat" ? "sehme_sadaat" : d.fund === "general" ? "general" : sadaat ? "sehme_sadaat" : "general";
+    if (fund === "sehme_sadaat" && !sadaat) throw new HttpsError("failed-precondition", "Sehme Sadaat goes only to a verified Sadaat case.");
   } else if (POOL_FUNDS.includes(d.fund)) {
     fund = d.fund;
   } else if (d.fund) {

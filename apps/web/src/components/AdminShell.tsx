@@ -13,6 +13,7 @@ const NAV = [
   ["/admin/loans", "Loans"],
   ["/admin/payments", "Payments"],
   ["/admin/allocations", "Allocations"],
+  ["/admin/categories", "Categories"],
   ["/admin/khums", "Khums & ledgers"],
   ["/admin/lawajam", "Lawajam"],
   ["/admin/flags", "Fraud flags"],

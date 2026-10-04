@@ -80,6 +80,11 @@ export const DOC_KINDS = [
   "fee_receipt",
   "mark_sheet",
   "medical_report",
+  "pan",
+  "passport",
+  "driving_licence",
+  "voter_id",
+  "ration_card",
   "other",
 ] as const;
 export type DocKind = (typeof DOC_KINDS)[number];
@@ -91,6 +96,11 @@ export const DOC_LABELS: Record<DocKind, string> = {
   fee_receipt: "Fee receipt",
   mark_sheet: "Mark sheet",
   medical_report: "Medical report or bill",
+  pan: "PAN card",
+  passport: "Passport",
+  driving_licence: "Driving licence",
+  voter_id: "Voter ID",
+  ration_card: "Ration card",
   other: "Other document",
 };
 
@@ -106,8 +116,12 @@ export const DOCS_BY_TYPE: Record<CaseType, DocKind[]> = {
   education_loan: ["fee_receipt", "mark_sheet", "income_proof"],
 };
 
-export const requiredDocs = (type: string | undefined): DocKind[] => [
-  ...BASE_DOCS,
+/**
+ * Proof needed for a case. The identity document follows what the applicant chose. "None" means no identity upload and
+ * no address-proof demand: the committee verifies another way instead of turning the family away.
+ */
+export const requiredDocs = (type: string | undefined, idProofType: IdProofType = "aadhaar"): DocKind[] => [
+  ...(idProofType === "none" ? [] : [...(idDocKind(idProofType) ? [idDocKind(idProofType)!] : []), "address_proof" as DocKind]),
   ...(DOCS_BY_TYPE[type as CaseType] ?? []),
 ];
 
@@ -129,6 +143,10 @@ export const EVENT_KINDS = [
   "declined",
   "document_added",
   "gift_received",
+  "gift_allocated",
+  "gift_refunded",
+  "verification_recorded",
+  "emergency_exception",
 ] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
 
@@ -144,6 +162,10 @@ export const MEMBER_EVENT_TEXT: Record<EventKind, string> = {
   declined: "Your request was not approved. Please contact the Jamaat office if you have questions.",
   document_added: "A document was added to your request.",
   gift_received: "A donor has given to your request.",
+  gift_allocated: "A donor's gift was allocated to your request.",
+  gift_refunded: "A gift to your request was refunded.",
+  verification_recorded: "The committee recorded a verification step on your request.",
+  emergency_exception: "The committee marked your request as urgent.",
 };
 
 /** What the committee sees in the history log. */
@@ -158,6 +180,10 @@ export const STAFF_EVENT_TEXT: Record<EventKind, string> = {
   declined: "Denied",
   document_added: "Document added",
   gift_received: "Gift received",
+  gift_allocated: "Gift allocated",
+  gift_refunded: "Gift refunded",
+  verification_recorded: "Verification recorded",
+  emergency_exception: "Emergency exception granted",
 };
 
 // ---- Funds ----
@@ -171,3 +197,71 @@ export const FUND_LABELS: Record<string, string> = {
 
 /** The fund a case is paid from: Sadaat cases use Sehme Sadaat, others the general fund. */
 export const caseFund = (sadaat: boolean | undefined) => (sadaat ? "sehme_sadaat" : "general");
+
+// ---- Identity proof: "None" is a real, allowed answer ----
+export const ID_PROOF_TYPES = ["aadhaar", "pan", "passport", "driving_licence", "voter_id", "ration_card", "other", "none"] as const;
+export type IdProofType = (typeof ID_PROOF_TYPES)[number];
+export const ID_PROOF_LABELS: Record<IdProofType, string> = {
+  aadhaar: "Aadhaar", pan: "PAN", passport: "Passport", driving_licence: "Driving licence", voter_id: "Voter ID",
+  ration_card: "Ration card", other: "Other", none: "None",
+};
+/** The upload slot an identity choice fills. "Other" has no dedicated slot; "None" has no upload at all. */
+export const idDocKind = (t: IdProofType): DocKind | null => (t === "none" ? null : t === "other" ? "other" : t);
+
+export const NO_ID_REASONS = ["no_government_id", "document_lost", "minor", "emergency", "displaced", "privacy", "unable_to_obtain", "other"] as const;
+export type NoIdReason = (typeof NO_ID_REASONS)[number];
+export const NO_ID_REASON_LABELS: Record<NoIdReason, string> = {
+  no_government_id: "No government ID available", document_lost: "Document lost", minor: "Minor beneficiary",
+  emergency: "Emergency situation", displaced: "Refugee or displaced person", privacy: "Privacy concern",
+  unable_to_obtain: "Unable to obtain a document", other: "Other",
+};
+
+/** How the committee verifies someone with no ID. "none_available" is only acceptable with an emergency exception. */
+export const VERIFICATION_METHODS = [
+  "committee_interview", "home_visit", "authorized_representative", "reference_check", "institution_document",
+  "school_verification", "hospital_verification", "local_organization", "other", "none_available",
+] as const;
+export type VerificationMethod = (typeof VERIFICATION_METHODS)[number];
+export const VERIFICATION_LABELS: Record<VerificationMethod, string> = {
+  committee_interview: "Committee interview", home_visit: "Home visit", authorized_representative: "Authorised representative",
+  reference_check: "Reference check", institution_document: "Document from an institution", school_verification: "School verification",
+  hospital_verification: "Hospital verification", local_organization: "Local organisation verification", other: "Other",
+  none_available: "None available",
+};
+
+/** Mirrors the approve rule: a case with no ID needs another verification, or a recorded emergency exception. */
+export function identityCleared(c: { idProofType?: string; verificationMethod?: string; emergencyException?: unknown }): boolean {
+  if ((c.idProofType ?? "aadhaar") !== "none") return true;
+  if (c.emergencyException) return true;
+  return !!c.verificationMethod && c.verificationMethod !== "none_available";
+}
+
+// ---- Need categories (the committee can add more) ----
+export const NEED_CATEGORIES: Record<string, string> = {
+  ration: "Ration", food: "Food", education_fees: "Education fees", school_fees: "School fees", college_fees: "College fees",
+  healthcare: "Healthcare", medical_emergency: "Medical emergency", medicines: "Medicines", surgery: "Surgery", housing: "Housing",
+  rent: "Rent", utility_bills: "Utility bills", clothing: "Clothing", travel: "Travel", funeral: "Funeral",
+  disability_support: "Disability support", elderly_support: "Elderly support", children_support: "Children support",
+  special_need: "Special need", other: "Other",
+};
+export const CATEGORY_FOR_TYPE: Record<string, string> = {
+  medical: "healthcare", education: "education_fees", ration: "ration", scholarship: "education_fees", education_loan: "college_fees",
+};
+
+export const PRIORITIES = ["low", "normal", "high", "urgent"] as const;
+export type Priority = (typeof PRIORITIES)[number];
+export const PRIORITY_LABELS: Record<Priority, string> = { low: "Low", normal: "Normal", high: "High", urgent: "Urgent" };
+
+/** CASE-2026-000184: readable, sequential, and never the person's name. Year is the Indian calendar year. */
+export function publicCaseId(number: number, when: Date = new Date()): string {
+  const year = new Date(when.getTime() + 5.5 * 3600_000).getUTCFullYear();
+  return `CASE-${year}-${String(number).padStart(6, "0")}`;
+}
+/** The stored id, or one derived from the case number for older cases. */
+export const casePublicId = (c: { publicCaseId?: string; number?: number }) => c.publicCaseId ?? (c.number ? publicCaseId(c.number) : "");
+
+// ---- Donation or loan: never confused ----
+export const FINANCIAL_TYPES = {
+  donation: { label: "Donation", note: "Money given without any expectation of repayment." },
+  loan: { label: "Loan", note: "Money provided with an agreed repayment plan. Zero interest, zero late fees." },
+} as const;

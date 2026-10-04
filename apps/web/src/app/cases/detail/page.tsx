@@ -1,18 +1,31 @@
 "use client";
 
-import { addDoc, collection, doc, onSnapshot, serverTimestamp } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import { CASE_TYPE_LABELS, CATEGORY_LABELS, formatRupees, type CaseType } from "@ks1j/shared";
+import {
+  CASE_TYPE_LABELS,
+  CATEGORY_LABELS,
+  FINANCIAL_TYPES,
+  NEED_CATEGORIES,
+  PRIORITY_LABELS,
+  casePublicId,
+  formatRupees,
+  type CaseType,
+  type Priority,
+} from "@ks1j/shared";
 import { SiteHeader } from "@/components/SiteHeader";
-import { Banner, Button, Card, Field, PageHeader } from "@/components/ui";
-import { useAuth } from "@/lib/auth";
+import { Banner, Card, LinkButton, PageHeader } from "@/components/ui";
 import { db } from "@/lib/firebase";
 
 interface PublicCase {
   caseId: string;
+  publicCaseId?: string;
   category: string;
+  needCategory?: string;
+  priority?: Priority;
+  emergency?: boolean;
   type?: CaseType;
   number?: number;
   title?: string;
@@ -24,91 +37,45 @@ interface PublicCase {
 
 function Detail() {
   const id = useSearchParams().get("id") ?? "";
-  const { user } = useAuth();
   const [c, setC] = useState<PublicCase | null | undefined>(undefined);
-  const [amount, setAmount] = useState("500");
-  // A Sadaat case can take Sehme Sadaat or a general gift. Any other case takes general gifts only.
-  const [fund, setFund] = useState<"general" | "sehme_sadaat">("general");
-  const [msg, setMsg] = useState<string | null>(null);
   useEffect(
     () => (id ? onSnapshot(doc(db, "publicCases", id), (d) => setC(d.exists() ? (d.data() as PublicCase) : null)) : undefined),
     [id],
   );
 
-  async function give() {
-    setMsg(null);
-    try {
-      // Money never moves on the client: this only records a PENDING donation.
-      await addDoc(collection(db, "donations"), {
-        fund: c?.sadaat ? fund : "general",
-        // The real case id, not the public card id.
-        caseId: c?.caseId,
-        amount: Math.trunc(Number(amount)),
-        status: "pending",
-        payerId: user?.uid ?? null,
-        createdAt: serverTimestamp(),
-      });
-      setMsg("Thank you. Your pledge is recorded as pending until payment is confirmed.");
-    } catch (e) {
-      setMsg((e as Error).message);
-    }
-  }
-
   if (c === undefined) return <p>Loading…</p>;
   if (c === null) return <Banner>Case not found.</Banner>;
+  const pct = Math.min(100, c.amountNeeded ? (c.amountRaised / c.amountNeeded) * 100 : 0);
   return (
     <>
       <Link href="/cases" className="mb-3 inline-block text-sm font-semibold underline">
         ← All cases
       </Link>
       <PageHeader
-        eyebrow={`${CASE_TYPE_LABELS[c.type as CaseType] ?? CATEGORY_LABELS[c.category] ?? c.category}${c.sadaat ? " · Sadaat" : ""}`}
+        eyebrow={`${casePublicId(c)} · ${NEED_CATEGORIES[c.needCategory ?? ""] ?? CASE_TYPE_LABELS[c.type as CaseType] ?? CATEGORY_LABELS[c.category] ?? c.category}${c.sadaat ? " · Sadaat" : ""}`}
         title={`${c.number ? `#${c.number} ` : ""}${c.title || "Help for a family"}`}
         intro={c.description}
       />
+      <div className="mb-3 flex flex-wrap gap-2 text-xs font-semibold">
+        <span className="rounded-full border border-line px-3 py-1">{FINANCIAL_TYPES.donation.label}: {FINANCIAL_TYPES.donation.note}</span>
+        {c.emergency && <span className="rounded-full border border-red-400 px-3 py-1 text-red-600">Emergency</span>}
+        {c.priority && c.priority !== "normal" && <span className="rounded-full border border-line px-3 py-1">Priority: {PRIORITY_LABELS[c.priority]}</span>}
+      </div>
       <Card className="mb-4 space-y-3">
-        <div
-          className="h-3 w-full overflow-hidden rounded-full bg-line"
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={c.amountNeeded}
-          aria-valuenow={c.amountRaised}
-        >
-          <div
-            className="h-full rounded-full bg-brand"
-            style={{ width: `${Math.min(100, c.amountNeeded ? (c.amountRaised / c.amountNeeded) * 100 : 0)}%` }}
-          />
+        <div className="h-3 w-full overflow-hidden rounded-full bg-line" role="progressbar" aria-valuemin={0} aria-valuemax={c.amountNeeded} aria-valuenow={c.amountRaised}>
+          <div className="h-full rounded-full bg-brand" style={{ width: `${pct}%` }} />
         </div>
         <p className="tabular-nums">
-          <strong>{formatRupees(c.amountRaised)}</strong> raised of {formatRupees(c.amountNeeded)}
+          <strong>{formatRupees(c.amountRaised)}</strong> raised of {formatRupees(c.amountNeeded)} ({Math.round(pct)}%)
         </p>
         <p className="text-muted">
-          Verified and approved by two different Jamaat committee members. The Jamaat pays the hospital, school or family directly and
-          keeps proof.
+          Verified and approved by two different Jamaat committee members. The Jamaat pays the hospital, school or family directly and keeps proof.
         </p>
         <p className="text-muted">
-          To protect the family&apos;s dignity, their name and contact details are hidden. The Jamaat knows who they are and has checked
-          the need.
+          To protect the family&apos;s dignity, their name and contact details are hidden. The Jamaat knows who they are and has checked the need.
         </p>
       </Card>
-      <Card className="space-y-3">
-        {c.sadaat && (
-          <fieldset className="space-y-2">
-            <legend className="mb-1 text-sm font-medium">Which fund is this from?</legend>
-            {([["general", "General donation"], ["sehme_sadaat", "Sehme Sadaat (goes only to verified Sadaat cases)"]] as const).map(([v, label]) => (
-              <label key={v} className="flex min-h-11 items-center gap-2">
-                <input type="radio" name="fund" checked={fund === v} onChange={() => setFund(v)} />
-                {label}
-              </label>
-            ))}
-          </fieldset>
-        )}
-        <Field label="Amount (₹)" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} />
-        <Button onClick={give} disabled={!(Number(amount) > 0)}>
-          Give to this case
-        </Button>
-        {msg && <Banner>{msg}</Banner>}
-      </Card>
+      <LinkButton href={`/donate?caseId=${c.caseId}`}>Give to this case</LinkButton>
     </>
   );
 }

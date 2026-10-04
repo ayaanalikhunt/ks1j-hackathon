@@ -3,6 +3,7 @@
 // implementation and a single set of tests.
 const { FieldValue } = require("firebase-admin/firestore");
 const { refreshTransparency } = require("./transparency");
+const { caseRefOf } = require("./allocation");
 
 function notify(db, tx, userId, text, link) {
   if (!userId) return;
@@ -114,7 +115,7 @@ async function settleDonation(db, donationId, extra, confirmedBy) {
     if (direct) {
       // A gift aimed at a case or institution is allocated the moment it is verified, and the allocation is a real record.
       tx.create(db.collection("allocations").doc(), {
-        donationId, donorId: d.payerId ?? d.donorId ?? null, caseId: d.caseId ?? null, caseNumber: caseSnap?.exists ? caseSnap.get("number") ?? null : null, institutionId: d.institutionId ?? null,
+        donationId, donorId: d.payerId ?? d.donorId ?? null, caseId: d.caseId ?? null, caseNumber: caseSnap?.exists ? caseSnap.get("number") ?? null : null, caseRef: caseSnap?.exists ? caseRefOf(caseSnap.data()) : null, institutionId: d.institutionId ?? null,
         amount: d.amount, category: d.purpose ?? "general_support", fund: d.fund, status: "allocated",
         disbursedAmount: 0, reservedAmount: 0, approvedBy: confirmedBy, createdAt: FieldValue.serverTimestamp(),
       });

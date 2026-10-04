@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { CASE_TYPE_LABELS, CATEGORY_LABELS, formatRupees, type CaseType } from "@ks1j/shared";
+import { CASE_TYPE_LABELS, CATEGORY_LABELS, NEED_CATEGORIES, casePublicId, formatRupees, type CaseType } from "@ks1j/shared";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Banner, Card, PageHeader } from "@/components/ui";
 import { useCollection } from "@/lib/useCollection";
@@ -11,6 +11,9 @@ interface PublicCase {
   category: string;
   type?: CaseType;
   number?: number;
+  publicCaseId?: string;
+  needCategory?: string;
+  emergency?: boolean;
   title?: string;
   sadaat?: boolean;
   description: string;
@@ -51,8 +54,8 @@ export default function Cases() {
             <Link key={c.id} href={`/cases/detail?id=${c.id}`}>
               <Card className="h-full">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand">
-                  {CASE_TYPE_LABELS[c.type as CaseType] ?? CATEGORY_LABELS[c.category] ?? c.category}
-                  {c.sadaat ? " · Sadaat" : ""}
+                  {casePublicId(c)} · {NEED_CATEGORIES[c.needCategory ?? ""] ?? CASE_TYPE_LABELS[c.type as CaseType] ?? CATEGORY_LABELS[c.category] ?? c.category}
+                  {c.sadaat ? " · Sadaat" : ""}{c.emergency ? " · Emergency" : ""}
                 </p>
                 <h3 className="mt-1 text-lg">{c.number ? `#${c.number} ` : ""}{c.title || "Help for a family"}</h3>
                 <p className="mt-1 text-muted">{c.description}</p>

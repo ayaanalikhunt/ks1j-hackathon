@@ -100,6 +100,8 @@ describe("allocation, disbursement and transparency, end to end", () => {
     const d = (await db().doc(`donations/${donationId}`).get()).data()!;
     expect(d).toMatchObject({ allocatedAmount: 17000, allocationStatus: "partially_allocated" });
     expect((await db().doc("cases/al-c1").get()).get("raised")).toBe(12000);
+    const refs = (await db().collection("allocations").where("donationId", "==", donationId).get()).docs.map((x) => x.get("caseRef"));
+    for (const r of refs) expect(r).toMatch(/^CASE-\d{4}-\d{6}$/);
     await expect(call(admin1, "allocateDonation", { donationId, allocations: [{ caseId: "al-c1", amount: 3001 }] })).rejects.toThrow(/unallocated/);
     const rec = await call(admin1, "reconcileFunds", {});
     expect(rec.warnings.filter((w: { donation: string }) => w.donation === "KS1J-DON-2026-000001")).toEqual([]);

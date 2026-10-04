@@ -38,6 +38,21 @@ import {
   type DocKind,
   type EventKind,
 } from "@ks1j/shared";
+import {
+  ID_PROOF_LABELS,
+  NEED_CATEGORIES,
+  NO_ID_REASON_LABELS,
+  PRIORITIES,
+  PRIORITY_LABELS,
+  VERIFICATION_LABELS,
+  VERIFICATION_METHODS,
+  casePublicId,
+  identityCleared,
+  type IdProofType,
+  type NoIdReason,
+  type Priority,
+  type VerificationMethod,
+} from "@ks1j/shared";
 import { Banner, Button, Card, PageHeader } from "@/components/ui";
 import { Tracker } from "@/components/Tracker";
 import { useAuth } from "@/lib/auth";
@@ -75,6 +90,18 @@ interface Case {
   declineReason?: DeclineReason;
   declineNote?: string;
   disbursedBy?: string;
+  publicCaseId?: string;
+  idProofType?: IdProofType;
+  noIdReason?: NoIdReason;
+  verificationMethod?: VerificationMethod;
+  verificationNotes?: string;
+  verificationStatus?: string;
+  emergencyClaimed?: boolean;
+  emergencyException?: { reason: string; approvedBy: string; at?: { toDate(): Date } | null };
+  priority?: Priority;
+  needCategory?: string;
+  zakatEligible?: boolean;
+  khumsEligible?: boolean;
 }
 
 interface ProofDoc {
@@ -127,8 +154,12 @@ function Review() {
   const [zoom, setZoom] = useState<ProofDoc | null>(null);
   const [msg, setMsg] = useState<{ error: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [altMethod, setAltMethod] = useState<VerificationMethod>("home_visit");
+  const [altNotes, setAltNotes] = useState("");
+  const [exReason, setExReason] = useState("");
 
   const members = useCollection<{ fullName: string }>("members");
+  const customCats = useCollection<{ label: string }>("caseCategories");
   const docs = useCollection<ProofDoc>(id ? `cases/${id}/documents` : "cases/none/documents");
   const flagState = useFlags();
   const [events, setEvents] = useState<(CaseEventRow & { id: string })[]>([]);
@@ -217,10 +248,33 @@ function Review() {
         description: publicText.trim(),
         amountNeeded: c!.amountRequested ?? 0,
         amountRaised: c!.raised ?? 0,
+        publicCaseId: casePublicId(c!),
+        needCategory: c!.needCategory ?? "other",
+        priority: c!.priority ?? "normal",
+        emergency: !!c!.emergencyException,
       });
       await updateDoc(ref, { status: "published", publishedBy: uid, publishedAt: serverTimestamp() });
       await log("published");
     }, "Published. Donors can see it now. The public card has no names or contact details.");
+  const saveAlt = () =>
+    act(async () => {
+      await updateDoc(ref, {
+        verificationMethod: altMethod,
+        verificationNotes: altNotes.trim(),
+        verificationBy: uid,
+        verificationAt: serverTimestamp(),
+        verificationStatus: altMethod === "none_available" ? "pending_review" : "verified",
+      });
+      await log("verification_recorded", `Alternative verification: ${VERIFICATION_LABELS[altMethod]}`);
+    }, "Alternative verification recorded.");
+  const grantEmergency = () =>
+    act(async () => {
+      await updateDoc(ref, { emergencyException: { reason: exReason.trim(), approvedBy: uid, at: serverTimestamp() }, priority: "urgent" });
+      await log("emergency_exception", `Emergency exception: ${exReason.trim()}`);
+      setExReason("");
+    }, "Emergency exception recorded. The two-person approval and every payout control still apply.");
+  const setTriage = (patch: { priority?: Priority; needCategory?: string }) => act(() => updateDoc(ref, patch), "Saved.");
+  const setEligible = (field: "zakatEligible" | "khumsEligible", v: boolean) => act(() => updateDoc(ref, { [field]: v }), "Saved.");
   const payout = () => act(() => payOutCase({ caseId: id }), "Money handed over. The ledger entry is recorded.");
   const close = () =>
     act(async () => {
@@ -270,12 +324,14 @@ function Review() {
   const paid = gifts.filter((g) => g.status === "paid").reduce((s, g) => s + g.amount, 0);
   const pending = gifts.filter((g) => g.status === "pending").reduce((s, g) => s + g.amount, 0);
   const have = new Set(docs.rows.map((d) => d.kind));
-  const expected = requiredDocs(c.type);
+  const expected = requiredDocs(c.type, c.idProofType);
   const missing = expected.filter((k) => !have.has(k));
   const perHead = c.familyMembers && c.monthlyIncome != null ? Math.round(c.monthlyIncome / c.familyMembers) : null;
   const heading = `${c.number ? `#${c.number} ` : ""}${c.title || CASE_TYPE_LABELS[c.type as CaseType] || CATEGORY_LABELS[c.category] || "Case"}`;
   const myFlags = flagState.flags.filter((f) => f.caseId === id || f.otherId === id);
-  const approveBlocked = can.approve && !canApprove(c.verifiedBy, uid);
+  const idBlocked = can.approve && !identityCleared(c);
+  const approveBlocked = can.approve && (!canApprove(c.verifiedBy, uid) || idBlocked);
+  const trusteeLike = role === "trustee" || adminLike;
 
   return (
     <>
@@ -304,6 +360,64 @@ function Review() {
             <Row k="Aadhaar (last 4)" v={c.idLast4 || "Not given"} />
             <Row k="Member ID" v={<code className="text-xs">{c.applicantId}</code>} />
             <p className="mt-2 text-sm text-muted">Never shown publicly. Only staff and the applicant can see this.</p>
+          </Section>
+
+          <Section title="Identity and verification">
+            <Row k="Case ID" v={<code>{casePublicId(c)}</code>} />
+            <Row k="Priority" v={PRIORITY_LABELS[c.priority ?? "normal"]} />
+            <Row k="ID proof" v={ID_PROOF_LABELS[c.idProofType ?? "aadhaar"]} />
+            {c.idProofType === "none" && <Row k="Reason for no ID" v={c.noIdReason ? NO_ID_REASON_LABELS[c.noIdReason] : "Not given"} />}
+            <Row k="Verification" v={c.verificationMethod ? `${VERIFICATION_LABELS[c.verificationMethod]} (${c.verificationStatus ?? "pending_review"})` : c.idProofType === "none" ? "Pending review" : "By documents"} />
+            {c.verificationNotes && <Row k="Notes" v={c.verificationNotes} />}
+            {c.emergencyClaimed && <Row k="Applicant says" v="This is an emergency" />}
+            {c.emergencyException && (
+              <Row k="Emergency exception" v={`${c.emergencyException.reason} · approved by ${nameOf(c.emergencyException.approvedBy)}${c.emergencyException.at ? " · " + formatDateTime(c.emergencyException.at.toDate()) : ""}`} />
+            )}
+            {c.idProofType === "none" && !identityCleared(c) && (
+              <div className="mt-2"><Banner>No ID was given. That is not a reason to refuse help: verify the situation another way below. It cannot be approved until you do.</Banner></div>
+            )}
+            {open && c.idProofType === "none" && (
+              <div className="mt-3 space-y-2 border-t border-line pt-3">
+                <h3 className="font-semibold">Alternative verification</h3>
+                <select className="min-h-11 w-full rounded-xl border border-line bg-bg px-3" value={altMethod} onChange={(e) => setAltMethod(e.target.value as VerificationMethod)}>
+                  {VERIFICATION_METHODS.map((m) => <option key={m} value={m}>{VERIFICATION_LABELS[m]}</option>)}
+                </select>
+                <textarea className="min-h-20 w-full rounded-xl border border-line bg-bg p-3" placeholder="What was checked, and by whom?" value={altNotes} onChange={(e) => setAltNotes(e.target.value)} />
+                <Button disabled={busy || altNotes.trim().length < 5} onClick={saveAlt}>Record verification</Button>
+              </div>
+            )}
+            {open && trusteeLike && !c.emergencyException && (
+              <div className="mt-3 space-y-2 border-t border-line pt-3">
+                <h3 className="font-semibold">Emergency exception</h3>
+                <p className="text-sm text-muted">Speeds the review of an urgent case. It does not remove two-person approval or any payout control.</p>
+                <textarea className="min-h-16 w-full rounded-xl border border-line bg-bg p-3" placeholder="Why is this an emergency?" value={exReason} onChange={(e) => setExReason(e.target.value)} />
+                <Button className={GHOST} disabled={busy || exReason.trim().length < 5} onClick={grantEmergency}>Grant emergency exception</Button>
+              </div>
+            )}
+          </Section>
+
+          <Section title="Priority, category and restricted funds">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium">Priority</span>
+                <select className="min-h-11 w-full rounded-xl border border-line bg-bg px-3" value={c.priority ?? "normal"} disabled={busy || !(open || c.status === "published")} onChange={(e) => setTriage({ priority: e.target.value as Priority })}>
+                  {PRIORITIES.map((p) => <option key={p} value={p}>{PRIORITY_LABELS[p]}</option>)}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium">Need category</span>
+                <select className="min-h-11 w-full rounded-xl border border-line bg-bg px-3" value={c.needCategory ?? "other"} disabled={busy || !(open || c.status === "published")} onChange={(e) => setTriage({ needCategory: e.target.value })}>
+                  {[...Object.entries(NEED_CATEGORIES), ...customCats.rows.map((r) => [`custom_${r.id}`, r.label] as [string, string])].map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                </select>
+              </label>
+            </div>
+            {trusteeLike && (open || c.status === "published") && (
+              <div className="mt-3 space-y-1 text-sm">
+                <label className="flex items-center gap-2"><input type="checkbox" checked={!!c.zakatEligible} disabled={busy} onChange={(e) => setEligible("zakatEligible", e.target.checked)} /> Eligible to receive Zakat</label>
+                <label className="flex items-center gap-2"><input type="checkbox" checked={!!c.khumsEligible} disabled={busy} onChange={(e) => setEligible("khumsEligible", e.target.checked)} /> Eligible to receive Khums</label>
+                <p className="text-muted">Zakat and Khums donations are only ever allocated to cases marked eligible here.</p>
+              </div>
+            )}
           </Section>
 
           <Section title="Family">
@@ -427,6 +541,7 @@ function Review() {
                 )}
               </div>
               {waiting && <p className="mt-2 text-sm text-muted">{waiting}</p>}
+              {idBlocked && <p className="mt-1 text-sm text-muted">This case has no ID proof. Record another way of verifying it, or an emergency exception, before approving.</p>}
               {approveBlocked && iVerified && <p className="mt-1 text-sm text-muted">You verified this case, so a different person must approve it.</p>}
               {missing.length > 0 && c.status === "submitted" && <p className="mt-1 text-sm text-muted">Some documents are missing. Check them before you verify.</p>}
 

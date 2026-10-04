@@ -64,4 +64,12 @@ function summarize({ donations, allocations, cases }) {
   };
 }
 
-module.exports = { PURPOSES, RESTRICTED, VISIBILITY, canAllocate, reconcileDonation, summarize };
+/** CASE-2026-000184 for a case, whether or not the id was stored on it. */
+function caseRefOf(c, now = new Date()) {
+  if (c.publicCaseId) return c.publicCaseId;
+  if (!c.number) return null;
+  const year = new Date(now.getTime() + 5.5 * 3600_000).getUTCFullYear();
+  return `CASE-${year}-${String(c.number).padStart(6, "0")}`;
+}
+
+module.exports = { caseRefOf, PURPOSES, RESTRICTED, VISIBILITY, canAllocate, reconcileDonation, summarize };

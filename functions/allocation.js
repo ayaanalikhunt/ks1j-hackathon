@@ -2,7 +2,7 @@
 // Money rules live here (Admin SDK) and in firestore.rules, never in the browser.
 const { FieldValue, getFirestore } = require("firebase-admin/firestore");
 const { HttpsError, onCall } = require("firebase-functions/v2/https");
-const { canAllocate, reconcileDonation, PURPOSES } = require("./lib/allocation");
+const { canAllocate, caseRefOf, reconcileDonation, PURPOSES } = require("./lib/allocation");
 const { audit, caseEvent, notify } = require("./lib/settle");
 const { refreshTransparency } = require("./lib/transparency");
 
@@ -69,7 +69,7 @@ exports.allocateDonation = onCall(REGION, async (req) => {
       const raised = (cd.raised ?? 0) + a.amount;
       const funded = cd.status === "published" && raised >= cd.amountRequested;
       tx.create(db.collection("allocations").doc(), {
-        donationId, donorId: d.payerId ?? d.donorId ?? null, caseId: a.caseId, caseNumber: cd.number ?? null, amount: a.amount,
+        donationId, donorId: d.payerId ?? d.donorId ?? null, caseId: a.caseId, caseNumber: cd.number ?? null, caseRef: caseRefOf(cd), amount: a.amount,
         category: a.category ?? d.purpose ?? "general_support", fund: d.fund, status: "allocated",
         disbursedAmount: 0, reservedAmount: 0, approvedBy: uid, createdAt: FieldValue.serverTimestamp(),
       });
@@ -81,7 +81,7 @@ exports.allocateDonation = onCall(REGION, async (req) => {
       } else if (cards[i].exists) {
         tx.update(cards[i].ref, { amountRaised: FieldValue.increment(a.amount) });
       }
-      notify(db, tx, d.payerId ?? d.donorId, `Your donation was allocated to Case ${cd.publicCaseId ?? cd.number ?? a.caseId}.`, `/donations/detail?id=${donationId}`);
+      notify(db, tx, d.payerId ?? d.donorId, `Your donation was allocated to Case ${caseRefOf(cd) ?? a.caseId}.`, `/donations/detail?id=${donationId}`);
     });
 
     const now = (d.allocatedAmount ?? 0) + total;

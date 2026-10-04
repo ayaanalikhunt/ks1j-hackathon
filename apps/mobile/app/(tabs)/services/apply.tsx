@@ -2,7 +2,23 @@ import { router } from "expo-router";
 import { addDoc, collection, doc, runTransaction, serverTimestamp, updateDoc } from "firebase/firestore";
 import { useState } from "react";
 import { View } from "react-native";
-import { CASE_TYPES, CASE_TYPE_LABELS, DOC_KINDS, DOC_LABELS, requiredDocs, type CaseType, type DocKind } from "@ks1j/shared";
+import {
+  CASE_TYPES,
+  CASE_TYPE_LABELS,
+  CATEGORY_FOR_TYPE,
+  DOC_KINDS,
+  DOC_LABELS,
+  ID_PROOF_LABELS,
+  ID_PROOF_TYPES,
+  NO_ID_REASONS,
+  NO_ID_REASON_LABELS,
+  publicCaseId,
+  requiredDocs,
+  type CaseType,
+  type DocKind,
+  type IdProofType,
+  type NoIdReason,
+} from "@ks1j/shared";
 import { ProofSlot } from "@/components/ProofSlot";
 import { RequireAuth } from "@/components/RequireAuth";
 import { Banner, Body, Btn, Chip, Field, Heading, Screen } from "@/components/ui";
@@ -20,6 +36,9 @@ export default function Apply() {
   const { user, member } = useAuth();
   const [type, setType] = useState<CaseType>("medical");
   const [sadaat, setSadaat] = useState(false);
+  const [idType, setIdType] = useState<IdProofType>("aadhaar");
+  const [noReason, setNoReason] = useState<NoIdReason | "">("");
+  const [urgent, setUrgent] = useState(false);
   const [f, setF] = useState({
     name: member?.fullName ?? "",
     phone: "",
@@ -39,10 +58,10 @@ export default function Apply() {
   const [busy, setBusy] = useState(false);
   const set = (k: keyof typeof f) => (v: string) => setF((p) => ({ ...p, [k]: v }));
 
-  const needed = requiredDocs(type);
+  const needed = requiredDocs(type, idType);
   const missingDocs = needed.filter((k) => !docs[k]);
   const ready =
-    f.name.trim() && f.phone.trim().length >= 8 && f.address.trim() && f.title.trim() && f.requirement.trim() && num(f.amount) > 0 && f.familyHistory.trim() && missingDocs.length === 0;
+    f.name.trim() && f.phone.trim().length >= 8 && f.address.trim() && f.title.trim() && f.requirement.trim() && num(f.amount) > 0 && f.familyHistory.trim() && missingDocs.length === 0 && (idType !== "none" || noReason !== "");
 
   async function submit() {
     setErr(null);
@@ -76,7 +95,15 @@ export default function Apply() {
         earningMembers: num(f.earningMembers),
         monthlyIncome: num(f.monthlyIncome),
         familyHistory: f.familyHistory.trim(),
-        idLast4: f.idLast4.trim().slice(0, 4),
+        idLast4: idType === "aadhaar" ? f.idLast4.trim().slice(0, 4) : "",
+        // "None" is a real answer. The committee verifies another way; nothing is invented and nobody is turned away for it.
+        idProofType: idType,
+        idProofRequired: idType !== "none",
+        ...(idType === "none" ? { noIdReason: noReason } : {}),
+        verificationStatus: "pending_review",
+        publicCaseId: publicCaseId(number),
+        needCategory: CATEGORY_FOR_TYPE[type] ?? "other",
+        emergencyClaimed: urgent,
         status: "draft",
         createdAt: serverTimestamp(),
       });
@@ -124,6 +151,10 @@ export default function Apply() {
         {sadaat && <Body muted>The committee checks your Aadhaar card before confirming this.</Body>}
 
         <Heading>The need</Heading>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+          <Chip label="This is an emergency" on={urgent} onPress={() => setUrgent(!urgent)} />
+        </View>
+        {urgent && <Body muted>Urgent requests are reviewed first. The committee still checks every case before any money moves.</Body>}
         <Field label="Short title" value={f.title} onChangeText={set("title")} placeholder="For example: Class 10 fees" />
         <Field label="Amount needed (₹)" value={f.amount} onChangeText={set("amount")} keyboardType="number-pad" />
         <Field label="Tell us about the need" value={f.requirement} onChangeText={set("requirement")} multiline />
@@ -142,7 +173,25 @@ export default function Apply() {
 
         <Heading>Proof</Heading>
         <Body muted>Clear photos, taken in good light. These are what the committee needs for a {CASE_TYPE_LABELS[type].toLowerCase()} request.</Body>
-        <Field label="Last 4 digits of your Aadhaar (optional)" value={f.idLast4} onChangeText={set("idLast4")} keyboardType="number-pad" maxLength={4} />
+        <Heading>ID proof</Heading>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+          {ID_PROOF_TYPES.map((t) => (
+            <Chip key={t} label={ID_PROOF_LABELS[t]} on={idType === t} onPress={() => setIdType(t)} />
+          ))}
+        </View>
+        {idType === "none" && (
+          <>
+            <Body muted>That is fine. You will not be turned away: the committee will verify your situation another way. Why is there no ID? (You do not need to explain more than this.)</Body>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              {NO_ID_REASONS.map((r) => (
+                <Chip key={r} label={NO_ID_REASON_LABELS[r]} on={noReason === r} onPress={() => setNoReason(r)} />
+              ))}
+            </View>
+          </>
+        )}
+        {idType === "aadhaar" && (
+          <Field label="Last 4 digits of your Aadhaar (optional)" value={f.idLast4} onChangeText={set("idLast4")} keyboardType="number-pad" maxLength={4} />
+        )}
         {needed.map((k) => (
           <ProofSlot key={k} label={DOC_LABELS[k]} required value={docs[k] ?? null} onChange={(p) => setDocs((d) => ({ ...d, [k]: p }))} />
         ))}

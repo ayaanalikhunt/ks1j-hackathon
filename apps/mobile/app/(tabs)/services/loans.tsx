@@ -88,7 +88,7 @@ export default function Loans() {
 
   return (
     <RequireAuth eyebrow="Services" title="My loans">
-      <Screen eyebrow="Services" title="My loans" intro="No interest. No late fees. If you fall behind, a person will reach out kindly.">
+      <Screen eyebrow="Services" title="My loans" intro="These are loans you repay, not donations. No interest. No late fees. If you fall behind, a person will reach out kindly.">
         {(loans.error || hardships.error) && <Banner error>{loans.error ?? hardships.error}</Banner>}
         {msg && <Banner>{msg}</Banner>}
         {loans.rows.length === 0 && <Banner>No loans yet.</Banner>}

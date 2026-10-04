@@ -14,6 +14,7 @@ import type { MyDonation } from "../page";
 
 interface Alloc {
   caseNumber?: number | null;
+  caseRef?: string | null;
   amount: number;
   category?: string;
   status: string;
@@ -96,7 +97,7 @@ function Detail() {
                 live.map((a) => {
                   const paidOut = disbs.rows.filter((x) => x.status === "completed" && x.allocationId === a.id);
                   return (
-                    <Step key={a.id} done title={`${formatRupees(a.amount)} allocated to ${a.caseNumber ? `Case #${a.caseNumber}` : "the committee's fund"}`}>
+                    <Step key={a.id} done title={`${formatRupees(a.amount)} allocated to ${a.caseRef ?? (a.caseNumber ? `Case #${a.caseNumber}` : "the committee's fund")}`}>
                       {PURPOSE_LABELS[a.category ?? ""] ?? ""}
                       {paidOut.map((x) => (
                         <p key={x.id}>

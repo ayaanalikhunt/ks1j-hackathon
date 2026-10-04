@@ -92,7 +92,7 @@ export default function AdminLoans() {
 
   return (
     <>
-      <PageHeader eyebrow="Committee dashboard" title="Education loans" intro="Qard-e-Hasana: no interest, no late fees. No payout until the plan is agreed." />
+      <PageHeader eyebrow="Committee dashboard" title="Education loans" intro="LOAN: money provided with an agreed repayment plan, never to be mixed up with a donation. Qard-e-Hasana: no interest, no late fees. No payout until the plan is agreed." />
       {msg && <div className="mb-3"><Banner kind={msg.error ? "error" : "info"}>{msg.text}</Banner></div>}
 
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">

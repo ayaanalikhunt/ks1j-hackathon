@@ -183,7 +183,7 @@ describe("applicant intake and proof documents", () => {
     const a = asUser("alice");
     await assertSucceeds(setDoc(doc(a, "cases", "n3"), draft));
     await assertFails(addDoc(collection(a, "cases", "n3", "documents"), { kind: "aadhaar", name: "x", dataUrl: img(950000) }));
-    await assertFails(addDoc(collection(a, "cases", "n3", "documents"), { kind: "passport", name: "x", dataUrl: img() }));
+    await assertFails(addDoc(collection(a, "cases", "n3", "documents"), { kind: "selfie", name: "x", dataUrl: img() }));
     await assertFails(addDoc(collection(a, "cases", "n3", "documents"), { kind: "aadhaar", name: "x", dataUrl: "javascript:alert(1)" }));
     await assertFails(addDoc(collection(a, "cases", "n3", "documents"), { kind: "aadhaar", name: "x", dataUrl: img(), extra: 1 }));
   });

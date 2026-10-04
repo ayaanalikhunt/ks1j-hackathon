@@ -114,7 +114,7 @@ export default function LoanApply() {
       <Screen
         eyebrow="Services"
         title="Education loan"
-        intro="Interest-free. No late fees, ever. You agree a monthly amount with a trustee, and repayment starts six months after the course ends."
+        intro="This is a loan, not a donation: you repay it. Interest-free. No late fees, ever. You agree a monthly amount with a trustee, and repayment starts six months after the course ends."
       >
         <Heading>The student and the course</Heading>
         <Field label="Student's full name" value={f.studentName} onChangeText={set("studentName")} autoCapitalize="words" />

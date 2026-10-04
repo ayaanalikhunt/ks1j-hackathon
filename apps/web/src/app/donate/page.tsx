@@ -3,12 +3,13 @@
 import { getFunctions, httpsCallable } from "firebase/functions";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { doc, onSnapshot } from "firebase/firestore";
 import { Suspense, useEffect, useState } from "react";
 import { PURPOSE_LABELS, RESTRICTED_PURPOSES, VISIBILITY_LABELS, formatRupees } from "@ks1j/shared";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Banner, Button, Card, Field, PageHeader } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 
 const CURRENCIES = ["INR", "USD", "EUR", "GBP", "AED", "SAR", "CAD", "AUD", "SGD", "QAR", "KWD"];
 const fns = getFunctions(auth.app, "asia-south1");
@@ -61,6 +62,9 @@ function Form() {
   const [displayName, setDisplayName] = useState("");
   const [coverFees, setCoverFees] = useState(false);
   const [consent, setConsent] = useState(false);
+  const [card, setCard] = useState<{ publicCaseId?: string; title?: string; sadaat?: boolean; number?: number } | null>(null);
+  const [fund, setFund] = useState<"general" | "sehme_sadaat">("general");
+  useEffect(() => (caseId ? onSnapshot(doc(db, "publicCases", `pub-${caseId}`), (d) => setCard(d.exists() ? (d.data() as typeof card) : null), () => {}) : undefined), [caseId]);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [msg, setMsg] = useState<{ kind: "info" | "error"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -85,7 +89,7 @@ function Form() {
     setMsg(null);
     try {
       if (!(await loadCheckout())) throw new Error("Could not load the payment window. Check your connection.");
-      const o = await orderFn({ amount: Number(amount), currency, coverFees, purpose, visibility, displayName, consent, caseId: caseId ?? undefined });
+      const o = await orderFn({ amount: Number(amount), currency, coverFees, purpose, visibility, displayName, consent, caseId: caseId ?? undefined, fund: caseId && card?.sadaat ? fund : undefined });
       const { donationId, orderId, keyId, reference } = o.data;
       const rz = new window.Razorpay!({
         key: keyId,
@@ -118,7 +122,19 @@ function Form() {
 
   return (
     <Card>
-      {caseId && <p className="mb-3 text-sm text-muted">This gift goes to the case you chose. If it needs less than you give, the committee allocates the rest.</p>}
+      {caseId && (
+        <div className="mb-3 text-sm text-muted">
+          <p>This gift goes to {card ? `case ${card.publicCaseId ?? "#" + card.number}: ${card.title ?? ""}` : "the case you chose"}. A donation is money given without repayment.</p>
+          {card?.sadaat && (
+            <fieldset className="mt-2 space-y-1">
+              <legend className="text-sm font-medium text-fg">Which fund?</legend>
+              {([["general", "General donation"], ["sehme_sadaat", "Sehme Sadaat (only for verified Sadaat cases)"]] as const).map(([v, label]) => (
+                <label key={v} className="flex min-h-11 items-center gap-2"><input type="radio" name="fund" checked={fund === v} onChange={() => setFund(v)} />{label}</label>
+              ))}
+            </fieldset>
+          )}
+        </div>
+      )}
       <div className="grid gap-3 sm:grid-cols-[1fr_8rem]">
         <Field label="Amount" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="1000" />
         <label className="block">
