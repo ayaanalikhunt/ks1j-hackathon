@@ -3,7 +3,6 @@
 import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
-  MOSQUES,
   buildAppleMapsUrl,
   buildGoogleMapsUrl,
   extractMosqueQuery,
@@ -19,6 +18,7 @@ import {
 import { SiteHeader } from "@/components/SiteHeader";
 import { Banner, Button, Card, Field, PageHeader } from "@/components/ui";
 import { getCurrentUserLocation, type LocationError } from "@/lib/location";
+import { useMosques } from "@/lib/useMosques";
 
 const JUMMAH_LABEL: Record<MosqueVenue["jummahStatus"], string> = {
   YES: "Jummah: reported in public reviews. Please confirm the time before travelling.",
@@ -83,6 +83,7 @@ function VenueCard({ m, distanceKm }: { m: MosqueVenue; distanceKm?: number | nu
 
 function Finder() {
   const params = useSearchParams();
+  const { mosques } = useMosques();
   const initial = params.get("q") ?? "";
   const [text, setText] = useState(initial);
   const [submitted, setSubmitted] = useState(initial);
@@ -106,7 +107,7 @@ function Finder() {
     }
   }
 
-  const matches = useMemo(() => searchMosques(parsed, MOSQUES), [parsed]);
+  const matches = useMemo(() => searchMosques(parsed, mosques), [parsed, mosques]);
   const nearby = useMemo(() => (loc ? findNearbyShiaMosques(loc, matches) : []), [loc, matches]);
   const fri = useMemo(() => searchFriday(loc, matches), [loc, matches]);
 

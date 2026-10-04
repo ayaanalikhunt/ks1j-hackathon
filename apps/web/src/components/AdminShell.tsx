@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { canOpenDashboard, isStaff } from "@ks1j/shared";
 import { useAuth } from "@/lib/auth";
+import { Brand } from "./Brand";
 import { ThemeToggle } from "./ThemeToggle";
 import { Banner } from "./ui";
 
@@ -26,6 +27,7 @@ const NAV = [
   ["/admin/announcements", "Announcements"],
   ["/admin/members", "Members"],
   ["/admin/community", "Community"],
+  ["/admin/mosques", "Mosques"],
 ] as const;
 
 // Volunteers are not staff: they never see cases, loans, members or money.
@@ -50,7 +52,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-4 p-4 md:flex-row">
       <aside className="rounded-2xl border border-line bg-card p-4 shadow-soft md:w-56 md:shrink-0">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand">Committee dashboard</p>
+        <Brand size={44} />
+        <p className="mt-3 text-xs font-semibold uppercase tracking-[0.18em] text-brand">Committee dashboard</p>
         <p className="mt-1 font-semibold">{member.fullName}</p>
         <p className="mb-3 text-sm capitalize text-muted">{member.role.replace("_", " ")}</p>
         <nav className="flex flex-wrap gap-1 md:flex-col">

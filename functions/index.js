@@ -262,6 +262,7 @@ Object.assign(exports, require("./publicCase"));
 Object.assign(exports, require("./report"));
 Object.assign(exports, require("./fraud"));
 Object.assign(exports, require("./documents"));
+Object.assign(exports, require("./mosques"));
 
 Object.assign(exports, require("./publicLoan"));
 Object.assign(exports, require("./loanReminders"));
