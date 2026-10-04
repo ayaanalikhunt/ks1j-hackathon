@@ -57,6 +57,34 @@ function Detail() {
   if (d === null) return <Banner>We could not find that donation.</Banner>;
 
   const live = allocs.rows.filter((a) => a.status === "allocated");
+  async function receipt() {
+    const { receiptPdf } = await import("@/lib/pdf");
+    receiptPdf({
+      reference: d!.publicReference ?? "Donation",
+      createdAt: d!.createdAt ? d!.createdAt.toDate() : null,
+      paidAt: d!.paidAt ? d!.paidAt.toDate() : null,
+      amount: d!.amount,
+      purpose: PURPOSE_LABELS[d!.purpose ?? ""] ?? "Donation",
+      status: d!.status ?? "pending",
+      visibility: d!.visibility ? d!.visibility[0].toUpperCase() + d!.visibility.slice(1) : undefined,
+      displayCurrency: d!.displayCurrency,
+      displayAmount: d!.displayAmount,
+      exchangeRate: d!.exchangeRate,
+      fxMarkupPercent: d!.fxMarkupPercent,
+      fxMarkupAmount: d!.fxMarkupAmount,
+      effectiveRate: d!.effectiveRate,
+      paymentMethod: d!.paymentMethod,
+      paymentId: d!.paymentId,
+      allocatedAmount: d!.allocatedAmount ?? 0,
+      disbursedAmount: d!.disbursedAmount ?? 0,
+      allocations: live.map((a) => ({
+        ref: a.caseRef ?? (a.caseNumber ? `Case #${a.caseNumber}` : "Committee fund"),
+        category: PURPOSE_LABELS[a.category ?? ""] ?? "",
+        amount: a.amount,
+        disbursed: a.disbursedAmount ?? 0,
+      })),
+    }).save(`${d!.publicReference ?? "receipt"}.pdf`);
+  }
   const paid = d.status === "paid";
   const done = (d.disbursedAmount ?? 0) >= d.amount && paid;
   const pendingProof = disbs.rows.some((x) => x.status === "completed" && x.proofStatus !== "verified");
@@ -66,6 +94,7 @@ function Detail() {
       <PageHeader eyebrow={d.publicReference ?? "Donation"} title={formatRupees(d.amount)} intro={`${PURPOSE_LABELS[d.purpose ?? ""] ?? "Donation"} · ${donationStage(d)}`} />
       <div className="mb-4 flex flex-wrap gap-2 print:hidden">
         <Button onClick={() => setShown((v) => !v)}>Where did my donation go?</Button>
+        {paid && <Button onClick={receipt}>Download receipt (PDF)</Button>}
         <Button className="!bg-card !text-[var(--fg)] border border-line" onClick={() => window.print()}>Print receipt</Button>
       </div>
 

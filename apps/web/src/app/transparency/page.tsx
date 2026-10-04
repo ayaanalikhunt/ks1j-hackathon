@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { CASE_STATUS_LABELS, CASE_TYPE_LABELS, NEED_CATEGORIES, formatRupees, type CaseType } from "@ks1j/shared";
 import { SiteHeader } from "@/components/SiteHeader";
-import { Banner, Card, PageHeader } from "@/components/ui";
+import { Banner, Button, Card, PageHeader } from "@/components/ui";
 import { auth, db } from "@/lib/firebase";
 
 interface RecentCase {
@@ -67,6 +67,23 @@ export default function Transparency() {
     listLoans({}).then((r) => setLoans(r.data.loans)).catch(() => setLoans([]));
   }, []);
   const unallocated = t ? t.totalDonated - t.totalAllocated : 0;
+  async function report() {
+    const { transparencyPdf } = await import("@/lib/pdf");
+    transparencyPdf({
+      totals: t ?? null,
+      cases: (recent ?? []).map((c) => ({
+        reference: c.reference,
+        category: (c.needCategory && NEED_CATEGORIES[c.needCategory]) || CASE_TYPE_LABELS[c.type as CaseType] || "Assistance",
+        status: CASE_STATUS_LABELS[c.status] ?? c.status,
+        requested: c.requested,
+        raised: c.raised,
+        disbursed: c.disbursed,
+        emergency: c.emergency,
+      })),
+      loans: loans ?? [],
+      generatedAt: new Date(),
+    }).save("ks1j-transparency-report.pdf");
+  }
   return (
     <>
       <SiteHeader />
@@ -76,6 +93,9 @@ export default function Transparency() {
           title="Donation transparency"
           intro="Every figure here is added up from verified payments, committee allocations and recorded payouts. No donor or family is named."
         />
+        {t !== undefined && recent !== null && loans !== null && (
+          <div className="mb-4 print:hidden"><Button onClick={report}>Download report (PDF)</Button></div>
+        )}
         {t === undefined && <p className="text-muted">Loading…</p>}
         {t === null && <Banner>No verified donations have been recorded yet.</Banner>}
         {t && (

@@ -22,6 +22,12 @@ export interface MyDonation {
   createdAt?: { toDate(): Date };
   paidAt?: { toDate(): Date };
   visibility?: string;
+  exchangeRate?: number | null;
+  fxMarkupPercent?: number | null;
+  fxMarkupAmount?: number | null;
+  effectiveRate?: number | null;
+  paymentMethod?: string | null;
+  paymentId?: string | null;
 }
 
 export default function MyDonations() {
@@ -34,6 +40,23 @@ export default function MyDonations() {
   );
   const updates = [...notes.rows].sort((a, b) => (b.at?.toDate().getTime() ?? Infinity) - (a.at?.toDate().getTime() ?? Infinity)).slice(0, 8);
   const mine = [...rows].sort((a, b) => (b.createdAt?.toDate().getTime() ?? 0) - (a.createdAt?.toDate().getTime() ?? 0));
+
+  async function statement() {
+    const { statementPdf } = await import("@/lib/pdf");
+    statementPdf(
+      mine.map((d) => ({
+        reference: d.publicReference ?? "Donation",
+        createdAt: d.createdAt ? d.createdAt.toDate() : null,
+        amount: d.amount,
+        displayCurrency: d.displayCurrency,
+        displayAmount: d.displayAmount,
+        purpose: PURPOSE_LABELS[d.purpose ?? ""] ?? "Donation",
+        status: d.status ?? "pending",
+        allocatedAmount: d.allocatedAmount ?? 0,
+        disbursedAmount: d.disbursedAmount ?? 0,
+      })),
+    ).save("ks1j-donation-statement.pdf");
+  }
 
   function exportCsv() {
     const head = csvRow(["Reference", "Date", "Amount (INR)", "Original amount", "Purpose", "Status", "Allocated", "Disbursed"]);
@@ -58,6 +81,7 @@ export default function MyDonations() {
         {mine.length > 0 && (
           <div className="mb-4 flex gap-2">
             <Button onClick={exportCsv}>Download CSV</Button>
+            <Button onClick={statement}>Download statement (PDF)</Button>
             <Link href="/donate" className="inline-flex min-h-11 items-center rounded-lg border border-line px-4 text-sm font-semibold">Donate again</Link>
             <Link href="/donations/profile" className="inline-flex min-h-11 items-center rounded-lg border border-line px-4 text-sm font-semibold">Profile and notifications</Link>
           </div>
