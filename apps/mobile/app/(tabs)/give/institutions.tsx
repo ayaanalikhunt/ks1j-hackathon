@@ -1,4 +1,4 @@
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, serverTimestamp, where } from "firebase/firestore";
 import { useState } from "react";
 import { formatRupees } from "@ks1j/shared";
 import { Banner, Body, Btn, Card, Field, Screen } from "@/components/ui";
@@ -8,11 +8,12 @@ import { useCollection } from "@/lib/firestore";
 
 export default function Institutions() {
   const { user } = useAuth();
-  const { rows } = useCollection("institutions");
+  // Members can only read verified institutions, so the query must say so.
+  const { rows } = useCollection("institutions", [where("ijazahVerified", "==", true)]);
   const [amount, setAmount] = useState("1000");
   const [msg, setMsg] = useState<string | null>(null);
   // Sehme Imam goes only to institutions with a verified ijazah from a Marja'.
-  const eligible = rows.filter((i) => i.ijazahVerified === true);
+  const eligible = rows.filter((i) => i.ijazahVerified === true && i.receiving !== false);
 
   const give = (institutionId: string) =>
     addDoc(collection(db, "donations"), {

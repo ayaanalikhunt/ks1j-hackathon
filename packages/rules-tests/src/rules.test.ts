@@ -385,3 +385,36 @@ describe("community", () => {
     await assertFails(addDoc(collection(asUser("alice"), "communityReports"), { reporterId: "bob", status: "open" }));
   });
 });
+
+describe("phase 3 safeguards", () => {
+  it("members cannot verify their own membership or link themselves to a household; admins can", async () => {
+    await assertFails(updateDoc(doc(asUser("alice"), "members", "alice"), { membershipVerified: true }));
+    await assertFails(updateDoc(doc(asUser("alice"), "members", "alice"), { householdId: "h1" }));
+    await assertFails(setDoc(doc(asUser("zed"), "members", "zed"), { fullName: "Z", role: "member", sadaatVerified: false, membershipVerified: true }));
+    await assertSucceeds(updateDoc(doc(asUser("adm"), "members", "alice"), { membershipVerified: true }));
+  });
+  it("fraud-flag decisions are staff-only, signed, and cannot be deleted", async () => {
+    const flag = { caseId: "c1", otherId: "cVer", kind: "same_applicant", status: "clear", by: "ver1", at: new Date() };
+    await assertSucceeds(setDoc(doc(asUser("ver1"), "fraudFlags", "c1__cVer__same_applicant"), flag));
+    await assertFails(setDoc(doc(asUser("ver1"), "fraudFlags", "x"), { ...flag, by: "tru1" }));
+    await assertFails(setDoc(doc(asUser("ver1"), "fraudFlags", "y"), { ...flag, status: "open" }));
+    await assertFails(setDoc(doc(asUser("alice"), "fraudFlags", "z"), { ...flag, by: "alice" }));
+    await assertFails(setDoc(doc(asUser("vol"), "fraudFlags", "w"), { ...flag, by: "vol" }));
+    await assertFails(getDoc(doc(asUser("alice"), "fraudFlags", "c1__cVer__same_applicant")));
+    await assertSucceeds(getDoc(doc(asUser("tru1"), "fraudFlags", "c1__cVer__same_applicant")));
+    await assertFails(deleteDoc(doc(asUser("adm"), "fraudFlags", "c1__cVer__same_applicant")));
+  });
+  it("unverified institutions are hidden from the public and members, and cannot be self-verified", async () => {
+    await assertFails(getDoc(doc(anon(), "institutions", "iNo")));
+    await assertFails(getDoc(doc(asUser("alice"), "institutions", "iNo")));
+    await assertSucceeds(getDoc(doc(anon(), "institutions", "iOk")));
+    await assertSucceeds(getDoc(doc(asUser("tru1"), "institutions", "iNo")));
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "institutions", "iNew"), { name: "New", ijazahVerified: false, addedBy: "tru1" });
+    });
+    await assertFails(updateDoc(doc(asUser("tru1"), "institutions", "iNew"), { ijazahVerified: true, verifiedBy: "tru1" }));
+    await assertSucceeds(updateDoc(doc(asUser("tru2"), "institutions", "iNew"), { ijazahVerified: true, verifiedBy: "tru2" }));
+    await assertFails(updateDoc(doc(asUser("adm"), "institutions", "iNo"), { ijazahVerified: true })); // admins cannot flip it quietly either
+    await assertSucceeds(updateDoc(doc(asUser("adm"), "institutions", "iOk"), { receiving: false })); // pausing is a normal edit
+  });
+});

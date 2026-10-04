@@ -11,6 +11,7 @@ import { useCollection } from "@/lib/useCollection";
 
 interface M {
   householdId?: string;
+  membershipVerified?: boolean;
   fullName: string;
   role: Role;
   sadaatVerified: boolean;
@@ -24,6 +25,20 @@ export default function AdminMembers() {
   const households = useCollection<{ name: string; area: string }>("households");
   const [msg, setMsg] = useState<string | null>(null);
   const isAdmin = isAdminLike(member?.role);
+  // Linking also keeps each household's list of member names current, so a member can see who is in their household.
+  async function link(id: string, newHid: string) {
+    setMsg(null);
+    try {
+      const me = rows.find((x) => x.id === id);
+      const oldHid = me?.householdId;
+      await updateDoc(doc(db, "members", id), { householdId: newHid });
+      const namesOf = (h: string, add?: string) => [...rows.filter((x) => x.householdId === h && x.id !== id).map((x) => x.fullName), ...(add ? [add] : [])];
+      if (oldHid) await updateDoc(doc(db, "households", oldHid), { memberNames: namesOf(oldHid) });
+      if (newHid) await updateDoc(doc(db, "households", newHid), { memberNames: namesOf(newHid, me?.fullName) });
+    } catch (e) {
+      setMsg((e as Error).message);
+    }
+  }
   const set = (id: string, patch: Partial<M>) => updateDoc(doc(db, "members", id), patch).catch((e) => setMsg((e as Error).message));
   return (
     <>
@@ -60,7 +75,7 @@ export default function AdminMembers() {
               if (!isAdmin) return current ? `${current.name} (${current.area})` : "Not linked";
               // Linking is how a member gets to see and pay their household's Lawajam.
               return (
-                <select className="rounded-lg border border-line bg-bg p-1" value={r.householdId ?? ""} onChange={(e) => set(r.id, { householdId: e.target.value } as Partial<M>)}>
+                <select className="rounded-lg border border-line bg-bg p-1" value={r.householdId ?? ""} onChange={(e) => link(r.id, e.target.value)}>
                   <option value="">Not linked</option>
                   {households.rows.map((h) => (
                     <option key={h.id} value={h.id}>{h.name} ({h.area})</option>
@@ -68,6 +83,16 @@ export default function AdminMembers() {
                 </select>
               );
             },
+          },
+          {
+            head: "Membership verified",
+            cell: (r) =>
+              isAdmin ? (
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={r.membershipVerified === true} onChange={(e) => set(r.id, { membershipVerified: e.target.checked })} />
+                  {r.membershipVerified ? "Verified" : "Waiting"}
+                </label>
+              ) : r.membershipVerified ? "Verified" : "Waiting",
           },
           {
             head: "Sadaat verified",

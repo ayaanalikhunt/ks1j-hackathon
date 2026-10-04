@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FUND_LABELS, FUND_TYPES, QUEUES, formatRupees, isStaff } from "@ks1j/shared";
 import { Card, PageHeader } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
+import { useFlags } from "@/lib/flags";
 import { useCollection } from "@/lib/useCollection";
 
 function Stat({ n, label, who, href }: { n: number | string; label: string; who: string; href: string }) {
@@ -31,6 +32,8 @@ export default function Overview() {
   const loans = useCollection<{ status: string }>("loans");
   const donations = useCollection<{ status: string }>("donations");
   const reports = useCollection<{ status: string }>("communityReports");
+  const people = useCollection<{ membershipVerified?: boolean }>("members");
+  const { flags, decided } = useFlags();
   const ledger = useCollection<{ fund: string; direction?: "in" | "out"; amount: number }>("ledger");
   const by = (rows: { status: string }[], s: string) => rows.filter((r) => r.status === s).length;
   const first = member?.fullName.split(" ")[0] ?? "";
@@ -54,11 +57,13 @@ export default function Overview() {
           </div>
 
           <h2 className="mb-3 font-display text-2xl">Needs attention</h2>
-          <div className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-3">
             <Stat n={by(donations.rows, "pending")} label="Gifts to confirm" who="Admin" href="/admin/payments" />
             <Stat n={by(loans.rows, "applied")} label="New loan requests" who="Trustee" href="/admin/loans" />
             <Stat n={by(loans.rows, "emi_pending_agreement")} label="Loans awaiting agreement" who="Family and trustee" href="/admin/loans" />
             <Stat n={by(reports.rows, "open")} label="Open community reports" who="Moderators" href="/admin/community" />
+            <Stat n={people.rows.filter((m) => !m.membershipVerified).length} label="New members to verify" who="Admin" href="/admin/members" />
+            <Stat n={flags.filter((f) => !decided.has(f.id)).length} label="Open fraud flags" who="Verifier" href="/admin/flags" />
           </div>
 
           <h2 className="mb-3 font-display text-2xl">Fund balances</h2>

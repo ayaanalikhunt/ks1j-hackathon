@@ -28,10 +28,12 @@ service cloud.firestore {
       allow read: if signedIn() && (request.auth.uid == uid || isStaff());
       allow create: if signedIn() && request.auth.uid == uid
         && request.resource.data.role == 'member'
-        && request.resource.data.sadaatVerified == false;
+        && request.resource.data.sadaatVerified == false
+        && request.resource.data.get('membershipVerified', false) == false
+        && !('householdId' in request.resource.data);
       allow update: if signedIn() && request.auth.uid == uid
         && unchanged('role') && unchanged('sadaatVerified')
-        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['householdId']);
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['householdId', 'membershipVerified']);
       // Admins verify Sadaat status and link a member to their household. They cannot change roles here.
       allow update: if isAdmin() && unchanged('role');
       allow update: if canSetRole();
@@ -141,10 +143,44 @@ service cloud.firestore {
 
     // ---- institutions ----
     // `received` and `handedOver` are written only by the Cloud Functions, so the held balance cannot be faked.
+    // Sehme Imam goes only to institutions holding an ijazah from a Marja'. One trustee adds one, a DIFFERENT trustee
+    // verifies it. Until then it is hidden from members.
     match /institutions/{id} {
-      allow read: if true;
-      allow create: if isAdmin() && !('received' in request.resource.data) && !('handedOver' in request.resource.data);
-      allow update: if isAdmin() && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['received', 'handedOver']);
+      allow read: if resource.data.ijazahVerified == true || isStaff();
+      allow create: if (role() == 'trustee' || isAdmin())
+        && request.resource.data.ijazahVerified == false
+        && request.resource.data.addedBy == request.auth.uid
+        && !('received' in request.resource.data) && !('handedOver' in request.resource.data)
+        && !('verifiedBy' in request.resource.data);
+      allow update: if (role() == 'trustee' || isAdmin()) && resource.data.ijazahVerified == false
+        && request.resource.data.ijazahVerified == true
+        && resource.data.addedBy != request.auth.uid
+        && request.resource.data.verifiedBy == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ijazahVerified', 'verifiedBy', 'verifiedAt']);
+      // Other edits (name, city, pausing gifts). Never the money fields, the verification, or who added it.
+      allow update: if isAdmin()
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['received', 'handedOver', 'ijazahVerified', 'verifiedBy', 'verifiedAt', 'addedBy']);
+      match /documents/{docId} {
+        allow read: if isStaff();
+        allow create: if (role() == 'trustee' || isAdmin())
+          && request.resource.data.dataUrl is string
+          && request.resource.data.dataUrl.matches('^data:image/(jpeg|png);base64,.*')
+          && request.resource.data.dataUrl.size() < 900000
+          && request.resource.data.keys().hasOnly(['kind', 'name', 'dataUrl', 'uploadedAt', 'addedBy'])
+          && request.resource.data.addedBy == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+
+    // ---- fraud flags: computed from the cases, so only the human decision is stored. A flag is a question, not a verdict. ----
+    match /fraudFlags/{id} {
+      allow read: if isStaff();
+      allow create, update: if isStaff()
+        && request.resource.data.status in ['clear', 'confirmed']
+        && request.resource.data.by == request.auth.uid
+        && request.resource.data.kind in ['same_applicant', 'same_household']
+        && request.resource.data.keys().hasOnly(['caseId', 'otherId', 'kind', 'status', 'by', 'at']);
+      allow delete: if false;
     }
     match /handovers/{id} {
       allow read: if isStaff();
@@ -154,7 +190,7 @@ service cloud.firestore {
     // ---- households: Lawajam is due per household ----
     match /households/{id} {
       allow read: if signedIn() && (isStaff() || me().get('householdId', '') == id);
-      allow create, update: if isAdmin() && request.resource.data.keys().hasOnly(['name', 'area', 'address', 'createdBy', 'createdAt']);
+      allow create, update: if isAdmin() && request.resource.data.keys().hasOnly(['name', 'area', 'address', 'createdBy', 'createdAt', 'memberNames']);
     }
 
     // ---- donations: create pending only; fund separation (rule 2) ----

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   canApprove,
+  computeFlags,
   csvRow,
   emiSchedule,
   formatRupees,
@@ -81,4 +82,23 @@ describe("community helpers", () => {
     expect(timeAgo(0, 3 * 3600_000)).toBe("3h ago");
   });
   it("splitList", () => expect(splitList("a, b ,, c")).toEqual(["a", "b", "c"]));
+});
+
+describe("fraud flags", () => {
+  const c = (id: string, applicantId: string, number: number, status = "submitted") => ({ id, applicantId, number, status });
+  it("flags a second open case by the same applicant, newer against older", () => {
+    const f = computeFlags([c("a", "u1", 1), c("b", "u1", 2)], []);
+    expect(f).toEqual([{ id: "b__a__same_applicant", kind: "same_applicant", caseId: "b", otherId: "a" }]);
+  });
+  it("flags two applicants in the same household, but not unlinked members", () => {
+    const cases = [c("a", "u1", 1), c("b", "u2", 2)];
+    expect(computeFlags(cases, [{ id: "u1", householdId: "h" }, { id: "u2", householdId: "h" }]).map((x) => x.kind)).toEqual(["same_household"]);
+    expect(computeFlags(cases, [{ id: "u1" }, { id: "u2" }])).toEqual([]);
+    expect(computeFlags(cases, [{ id: "u1", householdId: "h1" }, { id: "u2", householdId: "h2" }])).toEqual([]);
+  });
+  it("ignores cases that are paid out, closed or denied", () => {
+    expect(computeFlags([c("a", "u1", 1, "disbursed"), c("b", "u1", 2)], [])).toEqual([]);
+    expect(computeFlags([c("a", "u1", 1, "declined"), c("b", "u1", 2, "closed")], [])).toEqual([]);
+    expect(computeFlags([c("a", "u1", 1, "published"), c("b", "u1", 2, "funded")], [])).toHaveLength(1);
+  });
 });

@@ -24,6 +24,7 @@ import {
   DECLINE_REASONS,
   DOC_KINDS,
   DOC_LABELS,
+  FLAG_LABELS,
   MIN_DECLINE_NOTE,
   STAFF_EVENT_TEXT,
   canApprove,
@@ -40,6 +41,7 @@ import { Banner, Button, Card, PageHeader } from "@/components/ui";
 import { Tracker } from "@/components/Tracker";
 import { useAuth } from "@/lib/auth";
 import { auth, db } from "@/lib/firebase";
+import { decideFlag, useFlags } from "@/lib/flags";
 import { compressImage } from "@/lib/image";
 import { useCollection } from "@/lib/useCollection";
 
@@ -127,6 +129,7 @@ function Review() {
 
   const members = useCollection<{ fullName: string }>("members");
   const docs = useCollection<ProofDoc>(id ? `cases/${id}/documents` : "cases/none/documents");
+  const flagState = useFlags();
   const [events, setEvents] = useState<(CaseEventRow & { id: string })[]>([]);
   const [gifts, setGifts] = useState<{ amount: number; status: string }[]>([]);
 
@@ -270,6 +273,7 @@ function Review() {
   const missing = expected.filter((k) => !have.has(k));
   const perHead = c.familyMembers && c.monthlyIncome != null ? Math.round(c.monthlyIncome / c.familyMembers) : null;
   const heading = `${c.number ? `#${c.number} ` : ""}${c.title || CASE_TYPE_LABELS[c.type as CaseType] || CATEGORY_LABELS[c.category] || "Case"}`;
+  const myFlags = flagState.flags.filter((f) => f.caseId === id || f.otherId === id);
   const approveBlocked = can.approve && !canApprove(c.verifiedBy, uid);
 
   return (
@@ -363,6 +367,36 @@ function Review() {
                     <input type="file" accept="image/*" className="sr-only" disabled={busy} onChange={(e) => { addOfficeDoc(e.target.files?.[0]); e.target.value = ""; }} />
                   </label>
                 </div>
+              </div>
+            )}
+          </Section>
+
+          <Section title="Fraud flags">
+            <p className="mb-2 text-sm text-muted">Flags are hints. A verifier decides.</p>
+            {myFlags.length === 0 ? (
+              <p className="text-muted">No flags on this case.</p>
+            ) : (
+              <div className="space-y-3">
+                {myFlags.map((f) => {
+                  const d = flagState.decided.get(f.id);
+                  const other = flagState.cases.find((x) => x.id === (f.caseId === id ? f.otherId : f.caseId));
+                  return (
+                    <div key={f.id} className="rounded-xl border border-line p-3 text-sm">
+                      <p className="font-semibold">{FLAG_LABELS[f.kind]}</p>
+                      <p>
+                        Matches <Link className="underline" href={`/admin/cases/detail?id=${other?.id ?? ""}`}>{other?.number ? `#${other.number} ` : ""}{other?.title ?? "another case"}</Link>
+                      </p>
+                      {d ? (
+                        <p className="text-muted">{d.status === "clear" ? "Reviewed: not a problem." : "Reviewed: confirmed duplicate."}</p>
+                      ) : (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <Button className={`${GHOST} !min-h-9 !px-3`} onClick={() => decideFlag(f, "clear", uid).catch((e) => setMsg({ error: true, text: e.message }))}>Not a problem: clear</Button>
+                          <Button className="!min-h-9 !px-3" onClick={() => decideFlag(f, "confirmed", uid).catch((e) => setMsg({ error: true, text: e.message }))}>Confirm duplicate</Button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </Section>

@@ -7,6 +7,7 @@ export default function Services() {
       <FeatureCard icon="file" title="My applications" desc="See where each one stands" href="/services/mine" />
       <FeatureCard icon="coin" title="Education loan" desc="Zero interest, no late fees" href="/services/loan-apply" />
       <FeatureCard icon="shield" title="My loans" desc="Agree your EMI and repay" href="/services/loans" />
+      <FeatureCard icon="user" title="Profile and household" desc="Your membership details, family members and app language." href="/services/profile" />
       <FeatureCard icon="receipt" title="Receipts" desc="Your donations and their status" href="/services/receipts" />
     </Screen>
   );

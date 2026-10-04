@@ -236,9 +236,20 @@ describe("lawajam dues and institution handovers", () => {
   });
 
   it("sehme imam: gifts build up what is held for a verified institution", async () => {
-    const ref = await addDoc(collection(finance.db, "institutions"), { name: "Test Hawza", city: "Mumbai", marja: "Test Marja", ijazahVerified: true });
+    // Two-person rule: one person adds the institution, a DIFFERENT trustee verifies the ijazah.
+    const ref = await addDoc(collection(finance.db, "institutions"), { name: "Test Hawza", city: "Mumbai", marja: "Test Marja", ijazahVerified: false, addedBy: "lw-finance" });
     instId = ref.id;
-    await expect(addDoc(collection(finance.db, "institutions"), { name: "Cheat", ijazahVerified: true, received: 99999 })).rejects.toThrow();
+    await addDoc(collection(finance.db, "institutions", instId, "documents"), { kind: "ijazah", name: "ijazah.jpg", dataUrl: "data:image/jpeg;base64,AAAA", addedBy: "lw-finance" });
+    await expect(updateDoc(doc(finance.db, "institutions", instId), { ijazahVerified: true, verifiedBy: "lw-finance" })).rejects.toThrow(); // cannot verify your own
+    await expect(updateDoc(doc(father.db, "institutions", instId), { ijazahVerified: true, verifiedBy: "lw-father" })).rejects.toThrow();
+    await expect(getDoc(doc(father.db, "institutions", instId))).rejects.toThrow(); // hidden from members until verified
+    await expect(getDoc(doc(donor.db, "institutions", instId))).rejects.toThrow();
+    await expect(addDoc(collection(donor.db, "donations"), { fund: "sehme_imam", institutionId: instId, amount: 100, status: "pending", payerId: null })).rejects.toThrow();
+    await updateDoc(doc(trustee.db, "institutions", instId), { ijazahVerified: true, verifiedBy: "lw-trustee" });
+    expect((await getDoc(doc(donor.db, "institutions", instId))).data()?.name).toBe("Test Hawza"); // public once verified
+    await expect(getDoc(doc(donor.db, "institutions", instId, "documents", "x"))).rejects.toThrow(); // the ijazah image stays staff-only
+    await expect(addDoc(collection(finance.db, "institutions"), { name: "Cheat", ijazahVerified: true, addedBy: "lw-finance" })).rejects.toThrow(); // cannot create pre-verified
+    await expect(addDoc(collection(finance.db, "institutions"), { name: "Cheat", ijazahVerified: false, addedBy: "lw-finance", received: 99999 })).rejects.toThrow();
     await expect(updateDoc(doc(finance.db, "institutions", instId), { received: 99999 })).rejects.toThrow();
     const d = await addDoc(collection(donor.db, "donations"), { fund: "sehme_imam", institutionId: instId, amount: 1000, status: "pending", payerId: null });
     await callable(finance, "confirmPayment")({ kind: "donation", id: d.id });
@@ -259,7 +270,7 @@ describe("lawajam dues and institution handovers", () => {
   });
 
   it("an institution without a verified ijazah can neither take gifts nor receive a handover", async () => {
-    const ref = await addDoc(collection(finance.db, "institutions"), { name: "Unverified", ijazahVerified: false });
+    const ref = await addDoc(collection(finance.db, "institutions"), { name: "Unverified", ijazahVerified: false, addedBy: "lw-finance" });
     await expect(addDoc(collection(donor.db, "donations"), { fund: "sehme_imam", institutionId: ref.id, amount: 100, status: "pending", payerId: null })).rejects.toThrow();
     await expect(callable(finance, "recordHandover")({ institutionId: ref.id, amount: 1, reference: "NEFT-9" })).rejects.toThrow();
   });
