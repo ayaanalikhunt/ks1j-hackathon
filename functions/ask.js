@@ -16,10 +16,15 @@ const { actionLabel, speak } = require("./lib/ask/strings");
 
 const db = getFirestore();
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
+const OPENAI_API_KEY = defineSecret("OPENAI_API_KEY");
 const ACTION_THRESHOLD = 0.85;
 
-const model = () => process.env.AI_MODEL || "claude-sonnet-5-5";
-const apiBase = () => process.env.ANTHROPIC_API_BASE || undefined;
+// AI_PROVIDER (functions/.env) picks the model service: "openai" in production, "anthropic" against the local fake in tests.
+// Only that provider's key is attached to the function, so the other secret need not exist.
+const PROVIDER = process.env.AI_PROVIDER === "openai" ? "openai" : "anthropic";
+const KEY = PROVIDER === "openai" ? OPENAI_API_KEY : ANTHROPIC_API_KEY;
+const model = () => process.env.AI_MODEL || (PROVIDER === "openai" ? "gpt-4.1-mini" : "claude-sonnet-5-5");
+const apiBase = () => (PROVIDER === "openai" ? process.env.OPENAI_API_BASE : process.env.ANTHROPIC_API_BASE) || undefined;
 
 /** Never stores the question. Only what is needed to see how the guide is used and whether it works. */
 async function audit(row) {
@@ -64,7 +69,7 @@ function openPage(lang, action, routeId, signedIn) {
   return { outcome: "EXECUTED", body: { action: { id: action.id, routeId, params: action.marjaId ? { marjaId: action.marjaId } : {} }, path: action.query ? `${route.path}?q=${encodeURIComponent(action.query)}` : route.path, speak: speak(lang, "opening", route.title), opened: speak(lang, "opened", route.title), title: route.title, outcome: "EXECUTED" } };
 }
 
-exports.askGuide = onCall({ region: "asia-south1", cors: true, secrets: [ANTHROPIC_API_KEY], timeoutSeconds: 120 }, async (req) => {
+exports.askGuide = onCall({ region: "asia-south1", cors: true, secrets: [KEY], timeoutSeconds: 120 }, async (req) => {
   const started = Date.now();
   const requestId = crypto.randomUUID();
   const ip = req.rawRequest?.headers?.["x-forwarded-for"]?.split(",")[0]?.trim() || req.rawRequest?.ip || "local";
@@ -124,12 +129,12 @@ exports.askGuide = onCall({ region: "asia-south1", cors: true, secrets: [ANTHROP
     }
 
     // ---- a fiqh question: needs the model ----
-    const apiKey = ANTHROPIC_API_KEY.value();
+    const apiKey = KEY.value();
     if (!configured(apiKey)) {
       await audit({ ...base, lang, intent, outcome: "ERROR", httpStatus: 412, errorCode: "ai_not_configured", latencyMs: Date.now() - started });
       throw new HttpsError("failed-precondition", "The AI guide is not switched on yet. Commands such as “open donation” still work.");
     }
-    const ask = (system, turns) => complete({ apiKey, model: model(), base: apiBase(), system, turns });
+    const ask = (system, turns) => complete({ provider: PROVIDER, apiKey, model: model(), base: apiBase(), system, turns });
     const scholar = typeof d.scholar === "string" && d.scholar ? d.scholar.slice(0, 40) : "sistani";
 
     if (scholar === "compare") {

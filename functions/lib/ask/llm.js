@@ -1,4 +1,5 @@
-// The language model behind the guide: Anthropic's Messages API over plain fetch, with retries. The key is a server secret and
+// The language model behind the guide, over plain fetch with retries: Anthropic's Messages API or OpenAI's Chat Completions
+// API, chosen by `provider`. The key is a server secret and
 // never reaches a browser. `fetchImpl` and the base URL are injectable so tests never touch the network.
 
 const NOT_CONFIGURED = "not-configured";
@@ -29,22 +30,43 @@ function toTurns(history, question) {
   return turns;
 }
 
+const PROVIDERS = {
+  anthropic: {
+    base: "https://api.anthropic.com",
+    request: ({ apiKey, model, system, turns }) => ({
+      path: "/v1/messages",
+      headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+      body: { model, max_tokens: 900, system, messages: turns },
+    }),
+    text: (body) => (body.content ?? []).filter((b) => b.type === "text").map((b) => b.text).join("\n"),
+  },
+  openai: {
+    base: "https://api.openai.com",
+    request: ({ apiKey, model, system, turns }) => ({
+      path: "/v1/chat/completions",
+      headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
+      // the system prompt goes first; turns are already user/assistant only
+      body: { model, max_completion_tokens: 900, messages: [{ role: "system", content: system }, ...turns] },
+    }),
+    text: (body) => body.choices?.[0]?.message?.content ?? "",
+  },
+};
+
 /**
- * @param o { apiKey, model, base, system, turns, fetchImpl, retries }
+ * @param o { provider, apiKey, model, base, system, turns, fetchImpl, retries }
  * @returns the answer text. Throws if the guide cannot answer after the retries.
  */
-async function complete({ apiKey, model, base = "https://api.anthropic.com", system, turns, fetchImpl = fetch, retries = 2 }) {
+async function complete({ provider = "anthropic", apiKey, model, base, system, turns, fetchImpl = fetch, retries = 2 }) {
+  const p = PROVIDERS[provider];
+  if (!p) throw new Error(`Unknown model provider: ${provider}`);
+  const req = p.request({ apiKey, model, system, turns });
   let last;
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const res = await fetchImpl(`${base}/v1/messages`, {
-        method: "POST",
-        headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-        body: JSON.stringify({ model, max_tokens: 900, system, messages: turns }),
-      });
+      const res = await fetchImpl(`${base || p.base}${req.path}`, { method: "POST", headers: req.headers, body: JSON.stringify(req.body) });
       if (!res.ok) throw new Error(`The model returned ${res.status}.`);
       const body = await res.json();
-      const text = (body.content ?? []).filter((b) => b.type === "text").map((b) => b.text).join("\n").trim();
+      const text = String(p.text(body) ?? "").trim();
       if (!text) throw new Error("Empty response from the guide.");
       return text;
     } catch (e) {
@@ -55,4 +77,4 @@ async function complete({ apiKey, model, base = "https://api.anthropic.com", sys
   throw last instanceof Error ? last : new Error("The guide could not answer just now.");
 }
 
-module.exports = { complete, configured, sanitizeHistory, toTurns, NOT_CONFIGURED };
+module.exports = { complete, configured, sanitizeHistory, toTurns, NOT_CONFIGURED, PROVIDERS };

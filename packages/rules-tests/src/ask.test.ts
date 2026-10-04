@@ -162,6 +162,21 @@ describe("model client helpers", () => {
     expect(await llm.complete({ apiKey: "k-long-enough", model: "m", system: "s", turns: [{ role: "user", content: "q" }], fetchImpl: flaky })).toBe("fine");
     await expect(llm.complete({ apiKey: "k-long-enough", model: "m", system: "s", turns: [], retries: 1, fetchImpl: async () => ({ ok: false, status: 500 }) as Response })).rejects.toThrow(/500/);
   });
+  it("speaks OpenAI's Chat Completions API when asked to", async () => {
+    const seen: { url: string; init: RequestInit }[] = [];
+    const fake = async (url: string | URL | Request, init?: RequestInit) => {
+      seen.push({ url: String(url), init: init! });
+      return { ok: true, json: async () => ({ choices: [{ message: { role: "assistant", content: " answer " } }] }) } as Response;
+    };
+    const text = await llm.complete({ provider: "openai", apiKey: "sk-test-key", model: "gpt-x", system: "be careful", turns: [{ role: "user", content: "q" }], fetchImpl: fake });
+    expect(text).toBe("answer");
+    expect(seen[0].url).toBe("https://api.openai.com/v1/chat/completions");
+    expect((seen[0].init.headers as Record<string, string>).authorization).toBe("Bearer sk-test-key");
+    const body = JSON.parse(String(seen[0].init.body));
+    expect(body.messages).toEqual([{ role: "system", content: "be careful" }, { role: "user", content: "q" }]);
+    expect(body.max_completion_tokens).toBe(900);
+    await expect(llm.complete({ provider: "nope", apiKey: "k-long-enough", model: "m", system: "s", turns: [] })).rejects.toThrow(/provider/);
+  });
 });
 
 describe("rate limit and cache (pure)", () => {

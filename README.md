@@ -41,12 +41,13 @@ Never commit these. `.env` files, `.webhook-secret.txt` and debug logs are gitig
 | What | Where | Notes |
 |---|---|---|
 | Firebase web config | `apps/web/.env.local` | `NEXT_PUBLIC_FIREBASE_*` |
-| `ANTHROPIC_API_KEY` | Functions secret | Until set, fiqh answers say "not switched on"; commands such as "open donation" still work |
+| `OPENAI_API_KEY` | Functions secret | The Ask AI Guide's model in production (`AI_PROVIDER=openai` in `functions/.env`; `AI_MODEL` overrides the default model). Until set, fiqh answers say "not switched on"; commands still work |
+| `ANTHROPIC_API_KEY` | Functions secret | Only if `AI_PROVIDER` is `anthropic` (the emulator tests use this against a local fake) |
 | `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` | Functions secrets | |
-| `ENABLE_RAZORPAY`, `RAZORPAY_KEY_ID` | `functions/.env` | Razorpay functions load only when `ENABLE_RAZORPAY=true` |
+| `ENABLE_RAZORPAY`, `RAZORPAY_KEY_ID`, `AI_PROVIDER`, `AI_MODEL` | `functions/.env` | Razorpay functions load only when `ENABLE_RAZORPAY=true` |
 
 ```
-firebase functions:secrets:set ANTHROPIC_API_KEY --project ks1j-8a2e3
+firebase functions:secrets:set OPENAI_API_KEY --project ks1j-8a2e3     # then redeploy askGuide
 ```
 
 Razorpay webhook (dashboard): URL of the `razorpayWebhook` function, events `payment.captured` and `payment.failed`, secret = `RAZORPAY_WEBHOOK_SECRET`.
