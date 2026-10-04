@@ -5,11 +5,16 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { formatRupees } from "@ks1j/shared";
 import { CountUp } from "@/components/CountUp";
-import { PaperCollage, PhoneFan } from "@/components/HomeVisuals";
+import { PaperCollage } from "@/components/HomeVisuals";
 import { LocationPrompt } from "@/components/LocationPrompt";
-import { SectionHead } from "@/components/SectionHead";
 import { SiteHeader } from "@/components/SiteHeader";
-import { Card } from "@/components/ui";
+import { GuideDemo } from "@/components/home/GuideDemo";
+import { HelpThatMoves } from "@/components/home/HelpThatMoves";
+import { Hero } from "@/components/home/Hero";
+import { KhumsDemo } from "@/components/home/KhumsDemo";
+import { MoneyFlow } from "@/components/home/MoneyFlow";
+import { TwoPerson } from "@/components/home/TwoPerson";
+import { Walkthrough } from "@/components/home/Walkthrough";
 import { db } from "@/lib/firebase";
 
 interface Stats {
@@ -19,132 +24,99 @@ interface Stats {
   loansActive: number;
 }
 
-const DOES = [
-  ["Ask for help", "Welfare, scholarships and education loans. Apply once and follow every step."],
-  ["Pay Khums and Lawajam", "Work out what is due and keep your receipts in one place."],
-  ["Support families in need", "Give to verified cases. Names and contact details stay private."],
-  ["Get answers you can trust", "The helpdesk only answers from Jamaat-approved sources."],
-];
-
-const STEPS = [
-  ["Verify", "A verifier checks every case, its sources and its proof."],
-  ["Approve", "A different committee member approves. Never the same person."],
-  ["Give", "Your gift reaches the right fund, and every rupee is recorded."],
-];
-
-// A quiet geometric lattice in the brand's lighter green, drawn once as an inline SVG tile.
-const PATTERN = `url("data:image/svg+xml,${encodeURIComponent(
-  `<svg xmlns='http://www.w3.org/2000/svg' width='96' height='96' viewBox='0 0 96 96' fill='none' stroke='%23ffffff' stroke-opacity='.07' stroke-width='1.2'><path d='M48 0 96 48 48 96 0 48Z'/><circle cx='48' cy='48' r='13'/><path d='M0 0 48 48M96 0 48 48M0 96 48 48M96 96 48 48' stroke-opacity='.04'/></svg>`,
-)}")`;
-
-const delay = (d: string) => ({ "--d": d }) as React.CSSProperties;
-
+// The page tells one story in ten parts (01 to 10). Each major section has one moment of motion; everything else is still.
 export default function Home() {
   const [s, setS] = useState<Stats | null>(null);
   useEffect(() => onSnapshot(doc(db, "publicStats", "summary"), (d) => setS((d.data() as Stats) ?? null), () => {}), []);
+  // live figures only; zero is shown as zero
   const tiles: [string, number, (n: number) => string][] = [
     ["Total disbursed", s?.totalDisbursed ?? 0, formatRupees],
     ["Families helped", s?.familiesHelped ?? 0, String],
     ["Scholarships", s?.scholarships ?? 0, String],
     ["Active loans", s?.loansActive ?? 0, String],
   ];
+
   return (
     <div className="dark-scope">
-      <SiteHeader />
+      <SiteHeader overlay />
       <LocationPrompt />
-      <main className="mx-auto max-w-5xl space-y-16 px-4 py-6 sm:space-y-24 sm:py-10">
-        <section
-          className="hero relative overflow-hidden rounded-[28px] px-6 py-12 text-white sm:px-12 sm:py-20"
-          style={{ backgroundColor: "#0b4d3a", backgroundImage: PATTERN }}
-        >
-          {/* A gold mihrab arch, echoing the brand pack. Decorative only. */}
-          <div className="arch-wrap pointer-events-none absolute -right-6 bottom-0 hidden h-[88%] opacity-80 md:block">
-            <svg aria-hidden viewBox="0 0 200 300" className="arch h-full text-[#c9a24a]" fill="none" stroke="currentColor" strokeWidth="2">
-              <path pathLength={1} d="M20 300V130C20 70 70 25 100 8c30 17 80 62 80 122v170" />
-              <path pathLength={1} style={delay("0.9s")} d="M40 300V135C40 82 78 44 100 30c22 14 60 52 60 105v165" strokeOpacity=".5" />
-              <path pathLength={1} style={delay("1.6s")} d="M100 56v26M100 112l12-12-12-12-12 12Z" />
-              <circle cx="100" cy="100" r="3" fill="currentColor" />
-            </svg>
-          </div>
-          <div className="relative max-w-2xl md:max-w-[33rem]">
-            <p style={delay("100ms")} className="hero-in eyebrow-dot text-xs font-semibold uppercase tracking-[0.2em] text-[#c9a24a]">One Jamaat. One app.</p>
-            <h1 style={delay("250ms")} className="hero-in mt-3 font-display text-4xl leading-tight sm:text-6xl">Everything from the Jamaat, in one app.</h1>
-            <p style={delay("450ms")} className="hero-in mt-5 text-lg leading-relaxed text-white/80">
-              Ask for help, pay Khums and Lawajam, support families in need and get answers you can trust. Every case is checked by two
-              committee members, and every rupee is recorded.
-            </p>
-            <div style={delay("650ms")} className="hero-in mt-8 flex flex-wrap gap-3">
-              <Link href="/app" className="gold-btn inline-flex min-h-12 items-center rounded-xl bg-[#c9a24a] px-6 font-bold text-[#1d2a24]">
-                Get the Android app
-              </Link>
-              <Link href="/cases" className="ghost-btn inline-flex min-h-12 items-center rounded-xl border border-white/40 px-6 font-semibold">
-                See open cases
-              </Link>
-            </div>
-            <p style={delay("850ms")} className="hero-in mt-4 text-sm text-white/60">The app is for members. This website is for everyone.</p>
-          </div>
-        </section>
+      <main className="mx-auto max-w-6xl space-y-24 px-4 py-6 sm:space-y-36 sm:py-10">
+        <Hero />
 
-        <section>
-          <SectionHead eyebrow="Impact" title="Together so far" />
-          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {tiles.map(([label, value, fmt], i) => (
-              <Card key={label} className={`lift ${i === 0 ? "col-span-2 sm:col-span-1" : ""}`}>
-                <p className="text-sm text-muted">{label}</p>
-                <p className="mt-1 num text-[clamp(1.5rem,7vw,1.875rem)] [overflow-wrap:anywhere]"><CountUp value={value} format={fmt} /></p>
-              </Card>
-            ))}
-          </div>
-        </section>
-
-        <section className="grid items-center gap-10 md:grid-cols-[1fr_1.1fr]">
-          <div>
-            <h2 className="split-title">Four tabs. Nothing hidden in menus.</h2>
-            <p className="split-body">
-              Large text, plain words and big buttons, so every member of the family can use it. Home shows your reminders and Jamaat news; the other three tabs are one tap away. Built for Android phones.
-            </p>
-          </div>
-          <PhoneFan />
-        </section>
-
-        <section className="grid items-center gap-10 md:grid-cols-[1.1fr_1fr]">
+        <section className="grid items-center gap-10 md:grid-cols-[1.1fr_1fr]" aria-labelledby="today-title">
           <div className="order-2 md:order-1">
             <PaperCollage />
           </div>
           <div className="order-1 md:order-2">
-            <h2 className="split-title">Today, help travels on paper, office visits and forwarded messages.</h2>
-            <p className="split-body">
-              Families wait without knowing where their request is. Funds with strict rules sit in the same book. KS1J puts every request, payment and answer in one place, with the rules checked every time.
-            </p>
+            <p className="section-no text-muted">Before KS1J</p>
+            <h2 id="today-title" className="split-title mt-2">Today, help travels on paper, office visits and forwarded messages.</h2>
+            <p className="split-body">Families wait without knowing where their request is. Funds with strict rules sit in the same book. KS1J puts every request, payment and answer in one place, with the rules checked every time.</p>
           </div>
         </section>
 
-        <section>
-          <SectionHead eyebrow="What you can do" title="Made for every member" />
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            {DOES.map(([t, d]) => (
-              <Card key={t} className="lift">
-                <h3 className="font-display text-xl">{t}</h3>
-                <p className="mt-1 text-muted">{d}</p>
-              </Card>
-            ))}
+        <Walkthrough />
+        <HelpThatMoves />
+        <MoneyFlow />
+        <TwoPerson />
+        <KhumsDemo />
+        <GuideDemo />
+
+        <section aria-labelledby="connected-title">
+          <p className="section-no text-brand">08 · Your Jamaat, connected</p>
+          <h2 id="connected-title" className="split-title mt-2 max-w-2xl">Find a masjid. Find each other.</h2>
+          <div className="mt-10 grid gap-4 md:grid-cols-2">
+            <Link href="/mosques" className="lift group rounded-3xl border border-line bg-card p-6 sm:p-8">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gold">Mosque finder</p>
+              <p className="mt-2 font-display text-2xl">36 Shia masajid across Mumbai and MMR</p>
+              <p className="mt-2 text-muted">Search by name or area, or the nearest one. On Friday it looks for a confirmed Jummah, and it never guesses a time.</p>
+              <span className="mt-5 inline-block font-semibold text-brand transition-transform duration-200 group-hover:translate-x-1">Open the finder →</span>
+            </Link>
+            <Link href="/app" className="lift group rounded-3xl border border-line bg-card p-6 sm:p-8">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gold">Community, in the app</p>
+              <p className="mt-2 font-display text-2xl">A feed, a directory and mentors</p>
+              <p className="mt-2 text-muted">News and thanks from members, profession circles and people who can help. Phone numbers are never shown.</p>
+              <span className="mt-5 inline-block font-semibold text-brand transition-transform duration-200 group-hover:translate-x-1">Get the app →</span>
+            </Link>
           </div>
         </section>
 
-        <section>
-          <SectionHead eyebrow="Where money goes" title="How every case is handled" />
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            {STEPS.map(([t, d], i) => (
-              <Card key={t} className="lift">
-                <p className="step-badge text-sm font-semibold text-brand">Step {i + 1}</p>
-                <h3 className="font-display text-xl">{t}</h3>
-                <p className="mt-1 text-muted">{d}</p>
-              </Card>
+        <section aria-labelledby="impact-title">
+          <p className="section-no text-brand">09 · Together so far</p>
+          <h2 id="impact-title" className="split-title mt-2">Live from the committee&apos;s records.</h2>
+          <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {tiles.map(([label, value, fmt], i) => (
+              <div key={label} className={`rounded-2xl border border-line bg-card p-5 ${i === 0 ? "col-span-2 sm:col-span-1" : ""}`}>
+                <p className="text-sm text-muted">{label}</p>
+                <p className="num mt-2 text-[clamp(1.6rem,6vw,2.25rem)] [overflow-wrap:anywhere]">
+                  <CountUp value={value} format={fmt} />
+                </p>
+              </div>
             ))}
+          </div>
+          <p className="mt-3 text-sm text-muted">
+            Counted from verified payments and recorded payouts. <Link href="/transparency" className="underline">See the full transparency report</Link>.
+          </p>
+        </section>
+
+        <section className="join-panel relative overflow-hidden rounded-[28px] px-6 py-14 text-center text-white sm:px-12 sm:py-20" aria-labelledby="join-title">
+          <div className="geo-field" aria-hidden />
+          <p className="section-no relative text-[#c9a24a]">10 · Join KS1J</p>
+          <h2 id="join-title" className="relative mx-auto mt-3 max-w-3xl font-display text-[clamp(2rem,5vw,3.4rem)] leading-tight">One Jamaat. One app.</h2>
+          <p className="relative mx-auto mt-4 max-w-xl text-white/75">Members use the Android app. Everyone can give, follow the numbers and find a masjid here.</p>
+          <div className="relative mt-8 flex flex-wrap justify-center gap-3">
+            <Link href="/app" className="btn-gold">Get the Android app</Link>
+            <Link href="/donate" className="btn-ghost">Donate</Link>
           </div>
         </section>
       </main>
-      <footer className="border-t border-line py-6 text-center text-sm text-muted">KS1J · One Jamaat. One app.</footer>
+      <footer className="border-t border-line py-8 text-center text-sm text-muted">
+        <p>KS1J · One Jamaat. One app.</p>
+        <p className="mt-2 space-x-4">
+          <Link href="/transparency" className="underline">Transparency</Link>
+          <Link href="/contact" className="underline">Contact</Link>
+          <Link href="/mosques" className="underline">Mosques</Link>
+        </p>
+      </footer>
     </div>
   );
 }

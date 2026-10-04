@@ -74,63 +74,40 @@ body {
 /* Money and counts: lining, evenly spaced figures in the body font (Playfair figures look uneven). */
 .num { font-variant-numeric: lining-nums tabular-nums; font-weight: 600; font-family: var(--font-sans); }
 
-/* Scroll reveal. Boxes spawn in place (fade + slight grow) as they scroll into view. Visible by default: only hidden
-   once the head script has confirmed IntersectionObserver, and never for people who prefer reduced motion. */
+/* ---------------------------------------------------------------------------------------------------------------------
+   Motion system. One set of durations and one easing for the whole site:
+     fast 200ms (hover, press) · ui 400ms (state changes) · major 800ms (section moments) · cinematic 1300ms (hero entrance)
+   Smooth deceleration, no springs or bounces. Nothing loops forever. Everything that moves has a still, fully readable
+   state for people who prefer reduced motion, and for browsers without IntersectionObserver.
+   --------------------------------------------------------------------------------------------------------------------- */
+@layer components {
+:root {
+  --t-fast: 200ms;
+  --t-ui: 400ms;
+  --t-major: 800ms;
+  --t-cine: 1300ms;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Scroll reveal for cards across the site: a short rise and fade. Visible by default; only hidden once the head script has
+   confirmed IntersectionObserver and that the visitor has not asked for reduced motion. */
 html.js-reveal .reveal {
   opacity: 0;
-  transform: scale(0.82);
-  /* About a second, ending with a small overshoot so it reads as something appearing, not just fading. */
-  transition: opacity 0.8s ease, transform 1s cubic-bezier(0.34, 1.45, 0.64, 1);
+  transform: translateY(18px);
+  transition: opacity var(--t-major) var(--ease), transform var(--t-major) var(--ease);
 }
 html.js-reveal .reveal.is-in {
   opacity: 1;
   transform: none;
 }
 
-/* Home page motion. Everything here is off for people who prefer reduced motion. */
-@media (prefers-reduced-motion: no-preference) {
-  @keyframes rise { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
-  @keyframes draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
-  @keyframes fade-in { from { opacity: 0; } to { opacity: var(--to, 1); } }
-  @keyframes float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -10px; } }
-  @keyframes drift { from { background-position: 0 0; } to { background-position: 96px 96px; } }
-  @keyframes glow { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
-  @keyframes sheen { from { transform: translateX(-120%) skewX(-20deg); } to { transform: translateX(260%) skewX(-20deg); } }
-  @keyframes grow-x { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-  @keyframes nudge { 0%, 100% { translate: 0 0; } 50% { translate: 0 -3px; } }
-
-  /* Hero: lines rise in one after another; lattice drifts; mihrab arch draws itself, then floats gently. */
-  .hero { animation: drift 40s linear infinite; }
-  .hero-in { opacity: 0; animation: rise 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards; animation-delay: var(--d, 0ms); }
-  .arch-wrap { --to: 0.8; opacity: 0; animation: fade-in 1.2s ease 0.3s forwards, float 7s ease-in-out 1.5s infinite; }
-  .arch path { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 2.2s ease forwards; animation-delay: var(--d, 0.4s); }
-  .arch circle { animation: glow 3.2s ease-in-out infinite; }
-  .gold-btn { position: relative; overflow: hidden; transition: transform 0.2s ease, box-shadow 0.2s ease; }
-  .gold-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(201, 162, 74, 0.45); }
-  .gold-btn::after { content: ""; position: absolute; inset: 0 auto 0 0; width: 40%; background: rgba(255, 255, 255, 0.45); transform: translateX(-120%) skewX(-20deg); animation: sheen 3.6s ease-in-out 1.8s infinite; }
-  .ghost-btn { transition: background-color 0.2s ease, transform 0.2s ease; }
-  .ghost-btn:hover { background-color: rgba(255, 255, 255, 0.12); transform: translateY(-2px); }
-  .eyebrow-dot::before { content: ""; display: inline-block; width: 0.5rem; height: 0.5rem; margin-right: 0.6rem; border-radius: 9999px; background: #c9a24a; animation: glow 2s ease-in-out infinite; }
-
-  /* Section headings: the gold rule grows when the heading arrives. */
-  .rule { transform-origin: left; transform: scaleX(0); }
-  .is-in .rule, html:not(.js-reveal) .rule { animation: grow-x 0.8s ease 0.25s forwards; }
-
-  /* Cards lift on hover without fighting the scroll-reveal transform. */
-  .lift { transition: translate 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease; }
-  html.js-reveal .reveal.lift { transition: opacity 0.8s ease, transform 1s cubic-bezier(0.34, 1.45, 0.64, 1), translate 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease; }
-  .lift:hover { translate: 0 -5px; box-shadow: 0 14px 30px rgba(11, 77, 58, 0.18); border-color: var(--green); }
-  .lift:hover .step-badge { animation: nudge 0.9s ease-in-out infinite; }
-}
-
-/* Home page: a dark green ground in both themes, like the pitch slides. Re-declares the tokens so every card, rule and
-   heading inside follows it. Split sections pair a large serif statement with a tilted illustration. */
+/* ---------- Home: a dark green ground in both themes ---------- */
 .dark-scope {
-  --bg: #0d1612;
-  --card: #15231c;
+  --bg: #0b1410;
+  --card: #132019;
   --fg: #e8f0eb;
   --muted: #9bb0a5;
-  --border: #25382e;
+  --border: #22352b;
   --green: #6fbf97;
   --gold: #d8b45a;
   --wordmark: #e8f0eb;
@@ -139,9 +116,126 @@ html.js-reveal .reveal.is-in {
   color: var(--fg);
   min-height: 100vh;
 }
-.split-title { font-family: var(--font-display); font-weight: 500; font-size: clamp(2rem, 5.2vw, 3.1rem); line-height: 1.1; letter-spacing: -0.01em; }
-.split-body { margin-top: 1.25rem; font-size: 1.125rem; line-height: 1.7; color: var(--muted); max-width: 34rem; }
+.section-no { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; }
+.split-title { font-family: var(--font-display); font-weight: 500; font-size: clamp(2rem, 5.2vw, 3.2rem); line-height: 1.08; letter-spacing: -0.01em; }
+.split-body { margin-top: 1.25rem; font-size: 1.125rem; line-height: 1.7; color: var(--muted); max-width: 36rem; }
+
+/* Panels in the brand green with a barely-there eight-point lattice, the only Islamic geometry on the page. */
+.hero-panel, .join-panel { background: radial-gradient(120% 90% at 85% 10%, #0f5a44 0%, #0b4d3a 45%, #083a2c 100%); }
+.geo-field {
+  position: absolute; inset: 0; pointer-events: none; opacity: 0.55;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120' fill='none' stroke='%23ffffff' stroke-opacity='.06' stroke-width='1'%3E%3Cpath d='M60 18l12 30 30 12-30 12-12 30-12-30-30-12 30-12z'/%3E%3Cpath d='M30 30h60v60H30z' transform='rotate(45 60 60)' stroke-opacity='.035'/%3E%3C/svg%3E");
+  -webkit-mask-image: radial-gradient(80% 70% at 70% 30%, #000 0%, transparent 85%);
+  mask-image: radial-gradient(80% 70% at 70% 30%, #000 0%, transparent 85%);
+}
+
+/* Buttons */
+.btn-gold, .btn-ghost, .btn-quiet { display: inline-flex; min-height: 3rem; align-items: center; border-radius: 0.75rem; padding: 0 1.5rem; font-weight: 700; transition: transform var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease); }
+.btn-gold { background: #c9a24a; color: #1d2a24; }
+.btn-gold:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(201, 162, 74, 0.35); }
+.btn-ghost { border: 1px solid rgba(255, 255, 255, 0.4); color: #fff; font-weight: 600; }
+.btn-ghost:hover { background: rgba(255, 255, 255, 0.1); transform: translateY(-2px); }
+.btn-quiet { border: 1px solid var(--border); color: var(--fg); font-weight: 600; }
+.btn-quiet:hover { border-color: var(--gold); transform: translateY(-2px); }
+:is(.btn-gold, .btn-ghost, .btn-quiet, .nav-link, .mobile-link, .menu-btn, .lift):focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+
+/* ---------- The Android handset ---------- */
+.phone-stage { perspective: 1400px; }
+.android-phone {
+  --tilt: rotateY(-8deg) rotateX(4deg);
+  position: relative; aspect-ratio: 600 / 1298; border-radius: 2.1rem; padding: 0.55rem;
+  background: linear-gradient(145deg, #1b2420, #070c09 60%);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06) inset, 0 40px 80px -20px rgba(0, 0, 0, 0.75), 0 18px 30px -12px rgba(0, 0, 0, 0.6);
+}
+.android-phone.is-tilt { transform: var(--tilt); transition: transform var(--t-major) var(--ease); }
+.android-cam { position: absolute; left: 50%; top: 1.15rem; z-index: 2; width: 0.55rem; height: 0.55rem; margin-left: -0.275rem; border-radius: 9999px; background: #020403; box-shadow: 0 0 0 2px #10171300; }
+.android-screen { position: relative; height: 100%; overflow: hidden; border-radius: 1.6rem; background: #f4f6f4; }
+.android-shot { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top; opacity: 0; transition: opacity var(--t-major) var(--ease), transform var(--t-major) var(--ease); transform: scale(1.02); }
+.android-shot.is-on { opacity: 1; transform: none; }
+
+/* Context labels around the hero phone */
+.ctx-chip { max-width: 8.75rem; border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 0.9rem; background: rgba(8, 30, 23, 0.82); padding: 0.55rem 0.8rem; box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35); }
+
+/* Walkthrough steps dim when they are not the one on the phone (wide screens only) */
+@media (min-width: 1024px) {
+  .walk-step { opacity: 0.35; transition: opacity var(--t-ui) var(--ease); }
+  .walk-step.is-on { opacity: 1; }
+}
+
+/* Help that moves: the card slides between the five stops */
+.track-wide { container-type: inline-size; }
+.move-card { left: 0; transform: translateX(calc(var(--pos) / 4 * (100cqw - 15.5rem))); transition: transform 1100ms var(--ease); }
+
+/* Money flow: each lane's dot and fill travel once, lane after lane */
+.flow-fill { width: 0; }
+.flow-node { border-color: var(--border); }
+.flow-dot { left: calc(8.33% - 6px); opacity: 0; }
+.flow-on .flow-fill { width: 83.33%; }
+.flow-on .flow-dot { left: calc(91.67% - 6px); opacity: 1; }
+.flow-on .flow-node { border-color: var(--gold); }
+
+/* Typing in the guide example */
+.typing-dots { display: inline-flex; gap: 4px; }
+.typing-dots i { width: 6px; height: 6px; border-radius: 9999px; background: var(--muted); }
+.caret { display: inline-block; width: 2px; height: 1em; margin-left: 2px; vertical-align: -0.15em; background: var(--gold); }
+
+/* Hover lift for link cards */
+/* `translate`, not `transform`, so the lift never fights the scroll reveal */
+.lift { transition: translate var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease); }
+html.js-reveal .reveal.lift { transition: opacity var(--t-major) var(--ease), transform var(--t-major) var(--ease), translate var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease); }
+.lift:hover, .group:focus-visible .lift { translate: 0 -4px; border-color: color-mix(in srgb, var(--gold) 55%, var(--border)); box-shadow: 0 18px 36px rgba(0, 0, 0, 0.28); }
+
+/* ---------- Navigation ---------- */
+.site-header { transition: background-color var(--t-ui) var(--ease), border-color var(--t-ui) var(--ease), backdrop-filter var(--t-ui) var(--ease); border-bottom: 1px solid transparent; }
+.site-header.is-solid { background: color-mix(in srgb, var(--card) 92%, transparent); border-bottom-color: var(--border); backdrop-filter: saturate(140%) blur(10px); }
+.site-header.is-clear { background: transparent; }
+.nav-link { position: relative; border-radius: 0.5rem; padding: 0.4rem 0.6rem; color: var(--fg); opacity: 0.82; transition: opacity var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease); }
+.nav-link:hover { opacity: 1; background: color-mix(in srgb, var(--fg) 7%, transparent); }
+.nav-link[aria-current="page"] { opacity: 1; }
+.nav-link[aria-current="page"]::after { content: ""; position: absolute; left: 0.6rem; right: 0.6rem; bottom: 0.05rem; height: 2px; border-radius: 2px; background: var(--gold); }
+.menu-btn { position: relative; display: inline-flex; height: 2.75rem; width: 2.75rem; align-items: center; justify-content: center; border-radius: 0.75rem; border: 1px solid var(--border); }
+.menu-btn span, .menu-btn span::before, .menu-btn span::after { position: absolute; display: block; height: 2px; width: 1.2rem; border-radius: 2px; background: var(--fg); transition: transform var(--t-ui) var(--ease), background-color var(--t-fast); }
+.menu-btn span::before, .menu-btn span::after { content: ""; }
+.menu-btn span::before { transform: translateY(-6px); }
+.menu-btn span::after { transform: translateY(6px); }
+.menu-btn span.is-x { background: transparent; }
+.menu-btn span.is-x::before { transform: rotate(45deg); }
+.menu-btn span.is-x::after { transform: rotate(-45deg); }
+.mobile-nav { border-top: 1px solid var(--border); }
+.mobile-nav.is-open { animation: menu-in var(--t-ui) var(--ease); }
+.mobile-link { display: flex; min-height: 3rem; align-items: center; border-bottom: 1px solid var(--border); font-weight: 600; }
+.mobile-link[aria-current="page"] { color: var(--gold); }
+
+/* ---------- Entrances (only when motion is welcome) ---------- */
 @media (prefers-reduced-motion: no-preference) {
-  .tilt-card { transition: rotate 0.35s ease, translate 0.35s ease; }
+  @keyframes rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+  @keyframes phone-in { from { opacity: 0; transform: translateY(40px) scale(0.96); } to { opacity: 1; transform: none; } }
+  @keyframes chip-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  @keyframes badge-in { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: none; } }
+  @keyframes menu-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+  @keyframes blink { 50% { opacity: 0; } }
+  @keyframes dot { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+
+  .hero-in { opacity: 0; animation: rise var(--t-major) var(--ease) forwards; animation-delay: var(--d, 0ms); }
+  .phone-enter { opacity: 0; animation: phone-in var(--t-cine) var(--ease) 300ms forwards; }
+  .ctx-chip { opacity: 0; animation: chip-in var(--t-major) var(--ease) forwards; animation-delay: var(--d, 0ms); }
+  .state-badge { animation: badge-in var(--t-ui) var(--ease); }
+  .caret { animation: blink 1s steps(1) infinite; }
+  .typing-dots i { animation: dot 1s ease-in-out infinite; }
+  .typing-dots i:nth-child(2) { animation-delay: 0.15s; }
+  .typing-dots i:nth-child(3) { animation-delay: 0.3s; }
+  .flow-fill { transition: width 1500ms var(--ease); transition-delay: calc(var(--lane, 0) * 220ms); }
+  .flow-dot { transition: left 1500ms var(--ease), opacity 300ms ease; transition-delay: calc(var(--lane, 0) * 220ms); }
+  .flow-node { transition: border-color var(--t-ui) var(--ease); transition-delay: calc(var(--lane, 0) * 220ms + var(--k, 0) * 230ms); }
+  @keyframes bar-grow { from { transform: scaleX(0); } to { transform: none; } }
+  .case-bar { transform-origin: left; animation: bar-grow 900ms var(--ease) 200ms both; }
+  .tilt-card { transition: rotate 350ms var(--ease), translate 350ms var(--ease); }
   .tilt-card:hover { rotate: 0deg !important; translate: 0 -4px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .android-phone.is-tilt { transform: none; }
+  .move-card, .android-shot, .lift, .site-header { transition: none; }
+  .flow-on .flow-dot { opacity: 0; }
+}
+
 }
