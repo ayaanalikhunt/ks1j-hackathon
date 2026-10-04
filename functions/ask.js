@@ -61,7 +61,7 @@ function openPage(lang, action, routeId, signedIn) {
     const login = routeById("login");
     return { outcome: "DENIED", body: { action: { id: action.id, routeId: "login", params: {} }, path: login.path, speak: speak(lang, "denied"), title: login.title, outcome: "DENIED" } };
   }
-  return { outcome: "EXECUTED", body: { action: { id: action.id, routeId, params: action.marjaId ? { marjaId: action.marjaId } : {} }, path: route.path, speak: speak(lang, "opening", route.title), opened: speak(lang, "opened", route.title), title: route.title, outcome: "EXECUTED" } };
+  return { outcome: "EXECUTED", body: { action: { id: action.id, routeId, params: action.marjaId ? { marjaId: action.marjaId } : {} }, path: action.query ? `${route.path}?q=${encodeURIComponent(action.query)}` : route.path, speak: speak(lang, "opening", route.title), opened: speak(lang, "opened", route.title), title: route.title, outcome: "EXECUTED" } };
 }
 
 exports.askGuide = onCall({ region: "asia-south1", cors: true, secrets: [ANTHROPIC_API_KEY], timeoutSeconds: 120 }, async (req) => {

@@ -13,6 +13,7 @@ const ROUTES = [
   { id: "ask_makarem", path: "/ask/?marja=makarem", title: "Ask — Ayatollah Makarem Shirazi" },
   { id: "ask_compare", path: "/ask/?mode=compare", title: "Compare all three Maraji'" },
   { id: "cases", path: "/cases/", title: "Cases to support" },
+  { id: "mosques", path: "/mosques/", title: "Mosque finder" },
   { id: "donate", path: "/donate/", title: "Donate" },
   { id: "transparency", path: "/transparency/", title: "Donation transparency" },
   { id: "contact", path: "/contact/", title: "Contact the Jamaat office" },
@@ -42,6 +43,13 @@ const SIGNIN_WORDS = /(sign in|login|log in|signin|account|साइन|लॉ�
 const APP_WORDS = /(app|application|member app|एप|એપ|ऐप| ایپ|تطبيق)/;
 const TRANSPARENCY_WORDS = /(transparency|open books|financial report|पारदर्शिता|ટ્રાન્સપરન્સી|شفافیت|شفافية)/;
 
+// Mosque finder. A venue word is enough on its own; a Friday word only counts together with a "near me" word, so a
+// fiqh question about Friday prayer is still a question. The page itself parses the query (packages/shared mosqueSearch).
+const MOSQUE_WORDS = /(masjid|masajid|mosque|imambargah|imambara|imambada|azakhana|mehfil|मस्जिद|इमामबाड़ा|महफ़िल|महफिल|મસ્જિદ|ઇમામબર્ગાહ|ઇમામબાડા|મેહફિલ|મહેફિલ|مسجد|مساجد|امام بارگاہ|محفل)/;
+const FRIDAY_WORDS = /(friday|jummah|jumuah|jumma|juma|जुम्मा|जुमा|जुमे|જુમ્મા|જુમા|શુક્રવાર|جمعہ|جمعه|الجمعة)/;
+const WHERE_WORDS = /(where|kahan|kaha|kidhar|कहाँ|कहां|ક્યાં|کہاں|أين|کجا)/;
+const NEAR_WORDS = /(near|nearest|nearby|closest|paas|nazdeek|nazdik|पास|नज़दीक|नजदीक|નજીક|قریب|أقرب|نزدیک)/;
+
 const MARJA_NAMES = [
   { id: "sistani", re: /(sistani|sistany|seestani|sayyid sistani|سستانی|سیستانی|सिस्तानी|सीस्तानी|સિસ્તાની|સીસ્તાની|सिस्तानि)/i },
   { id: "khamenei", re: /(khamenei|khamenai|khamanai|khameini|خامنئی|خامنہ|खामेनई|खामेनी|ખામેનઈ|کھامنے|khaman)/i },
@@ -67,6 +75,13 @@ function classify(rawInput, ctx = {}) {
   if (isStatus) {
     matched.push("donation-status");
     return { action: { id: "GET_DONATION_STATUS", requiresAuth: true }, confidence: 0.95, matched };
+  }
+
+  // before donation, so "દાન નહીં, મસ્જિદ બતાવો" opens mosques; "donation kholo" has no venue word and is untouched
+  const wantsMosque = matches(MOSQUE_WORDS, text) || (matches(FRIDAY_WORDS, text) && (matches(NEAR_WORDS, text) || matches(WHERE_WORDS, text)));
+  if (wantsMosque && (hasVerb || matches(NEAR_WORDS, text) || matches(FRIDAY_WORDS, text) || text.split(" ").length <= 5)) {
+    matched.push("mosques");
+    return { action: { id: "OPEN_MOSQUE_FINDER", routeId: "mosques", query: String(rawInput).slice(0, 200) }, confidence: 0.92, matched };
   }
 
   if ((matches(COMPARE_WORDS, text) && (matches(MARAJI_WORDS, text) || marjaHit)) || (matches(MARAJI_WORDS, text) && matches(COMPARE_WORDS, text))) {

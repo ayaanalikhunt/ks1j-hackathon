@@ -15,6 +15,7 @@ export function SiteHeader() {
         <nav className="flex flex-1 flex-wrap items-center gap-x-5 gap-y-1 text-sm font-semibold">
           <Link href="/cases">Cases</Link>
           <Link href="/ask">Ask AI Guide</Link>
+          <Link href="/mosques">Mosques</Link>
           <Link href="/donate">Donate</Link>
           <Link href="/transparency">Transparency</Link>
           {user && <Link href="/donations">My donations</Link>}

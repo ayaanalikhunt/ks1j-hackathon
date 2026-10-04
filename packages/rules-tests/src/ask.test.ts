@@ -18,6 +18,28 @@ import { ASK_MARJAS } from "../../shared/src/askGuide";
 
 const id = (q: string, ctx = {}) => act.classify(q, ctx).action.id;
 
+describe("classifier: mosque finder", () => {
+  const MOSQUE = [
+    "Open mosque finder", "Find a Shia masjid near me", "Which Shia mosque is closest to me?", "Find the nearest Friday mosque",
+    "Where can I pray Jummah?", "Show Dongri Shia masjid", "Open Khoja Masjid Dongri", "मुझे शिया मस्जिद दिखाओ", "मेरे पास की शिया मस्जिद बताओ",
+    "आज जुमे की नमाज़ के लिए सबसे पास मस्जिद दिखाओ", "Shia masjid dikhao", "mere paas Shia masjid hai kya?", "Jumma wali masjid ka rasta dikhao",
+    "મસ્જિદ બતાવો", "મારી નજીક શિયા મસ્જિદ બતાવો", "આજે જુમાની નમાજ માટે સૌથી નજીકની શિયા મસ્જિદ બતાવો", "ડૉંગરીની શિયા મસ્જિદ બતાવો",
+    "દાન નહીં, મસ્જિદ બતાવો", "ખોજા મસ્જિદ ડોંગરી ખોલો", "میرے قریب شیعہ مسجد دکھاؤ", "جمعہ کی نماز کے لیے سب سے قریب مسجد دکھاؤ",
+    "أرني أقرب مسجد شيعي", "أين أقرب مسجد لصلاة الجمعة؟", "نزدیک‌ترین مسجد شیعه را نشان بده", "مسجد برای نماز جمعه کجاست؟",
+  ];
+  it("opens the finder for mosque requests in every supported script", () => {
+    for (const q of MOSQUE) {
+      const r = act.classify(q);
+      expect(r.action.id, q).toBe("OPEN_MOSQUE_FINDER");
+      expect(r.action.routeId).toBe("mosques");
+    }
+  });
+  it("leaves donation and fiqh questions alone", () => {
+    for (const q of ["donation kholo", "મારે દાન કરવું છે", "दान वाला पेज खोलो", "દાન ખોલો"]) expect(id(q), q).toBe("OPEN_DONATION");
+    for (const q of ["Is it permissible to pray Jummah alone?", "Can I pray in a masjid without wudu facilities?"]) expect(id(q), q).toBe("ASK_FIQH");
+  });
+});
+
 describe("classifier: commands in eight kinds of writing", () => {
   it("opens the donate page in English, Roman Urdu, Gujarati and Hindi", () => {
     for (const q of ["Open donation", "donation kholo", "દાન ખોલો", "मुझे दान करना है", "mujhe donation karna hai"]) {
