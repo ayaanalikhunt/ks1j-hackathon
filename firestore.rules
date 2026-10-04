@@ -54,9 +54,16 @@ service cloud.firestore {
     }
 
     // ---- public case cards: PII-free projection, server-written, world-readable ----
+    // Written by an admin only, and only these PII-free keys.
     match /publicCases/{id} {
       allow read: if true;
-      allow write: if false;
+      allow create, update: if isAdmin()
+        && request.resource.data.keys().hasOnly(['category', 'description', 'amountNeeded', 'amountRaised', 'caseId']);
+      allow delete: if isAdmin();
+    }
+    match /publicStats/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     // ---- institutions ----
@@ -137,6 +144,7 @@ service cloud.firestore {
     match /communityProfiles/{uid} {
       allow read: if signedIn() && hasProfile() && (resource.data.listed == true || request.auth.uid == uid || isStaff());
       allow create, update, delete: if signedIn() && request.auth.uid == uid;
+      allow update: if isStaff(); // moderation
     }
     match /communityPosts/{id} {
       allow read: if signedIn() && hasProfile();
