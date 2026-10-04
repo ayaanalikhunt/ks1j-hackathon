@@ -75,6 +75,14 @@ describe("rule 1: two different admins", () => {
   });
 });
 
+describe("Sadaat flag is staff-only", () => {
+  it("applicant cannot self-declare a Sadaat beneficiary to unlock Sehme Sadaat", async () => {
+    await assertFails(setDoc(doc(asUser("alice"), "cases", "x"), { applicantId: "alice", status: "submitted", beneficiarySadaatVerified: true }));
+    await assertSucceeds(setDoc(doc(asUser("alice"), "cases", "y"), { applicantId: "alice", status: "draft" }));
+    await assertFails(updateDoc(doc(asUser("alice"), "cases", "y"), { beneficiarySadaatVerified: true }));
+  });
+});
+
 describe("privacy", () => {
   it("other members cannot read a case; applicant and staff can", async () => {
     await assertFails(getDoc(doc(asUser("bob"), "cases", "c1")));
@@ -193,6 +201,13 @@ describe("community", () => {
     await assertSucceeds(updateDoc(doc(asUser("alice"), "communityGroups", "g", "members", "bob"), { status: "member" }));
     await assertFails(deleteDoc(doc(asUser("alice"), "communityGroups", "g", "members", "alice")));
     await assertFails(getDoc(doc(asUser("noprofile"), "communityGroups", "g", "members", "alice")));
+  });
+  it("group creator can seed their own owner row, others cannot claim owner", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "communityGroups", "g2"), { ownerId: "alice", private: false });
+    });
+    await assertSucceeds(setDoc(doc(asUser("alice"), "communityGroups", "g2", "members", "alice"), { role: "owner", status: "member" }));
+    await assertFails(setDoc(doc(asUser("bob"), "communityGroups", "g2", "members", "bob"), { role: "owner", status: "member" }));
   });
   it("reports: members file them, only staff read them", async () => {
     await assertSucceeds(addDoc(collection(asUser("alice"), "communityReports"), { reporterId: "alice", status: "open", targetType: "post", targetId: "p" }));

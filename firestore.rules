@@ -28,12 +28,14 @@ service cloud.firestore {
       allow read: if signedIn() && (resource.data.applicantId == request.auth.uid || isStaff());
       allow create: if signedIn() && request.resource.data.applicantId == request.auth.uid
         && request.resource.data.status in ['draft', 'submitted']
-        && !('verifiedBy' in request.resource.data) && !('approvedBy' in request.resource.data);
+        && !('verifiedBy' in request.resource.data) && !('approvedBy' in request.resource.data)
+        && request.resource.data.get('beneficiarySadaatVerified', false) == false; // staff-only flag
       // applicant may edit own draft only
       allow update: if signedIn() && resource.data.applicantId == request.auth.uid
         && resource.data.status == 'draft'
         && request.resource.data.status in ['draft', 'submitted']
-        && unchanged('verifiedBy') && unchanged('approvedBy');
+        && unchanged('verifiedBy') && unchanged('approvedBy') && unchanged('applicantId')
+        && request.resource.data.get('beneficiarySadaatVerified', false) == resource.data.get('beneficiarySadaatVerified', false);
       // Rule 1: verifier verifies; a DIFFERENT trustee approves.
       allow update: if role() == 'verifier' && resource.data.status == 'submitted'
         && request.resource.data.status == 'verified'
@@ -173,6 +175,9 @@ service cloud.firestore {
         allow create: if signedIn() && hasProfile() && request.auth.uid == uid
           && request.resource.data.role == 'member'
           && request.resource.data.status == (get(/databases/$(database)/documents/communityGroups/$(id)).data.private == true ? 'pending' : 'member');
+        // the group's creator seeds their own owner row
+        allow create: if signedIn() && request.auth.uid == uid && request.resource.data.role == 'owner'
+          && get(/databases/$(database)/documents/communityGroups/$(id)).data.ownerId == uid;
         // owner approves pending requests
         allow update: if signedIn() && get(/databases/$(database)/documents/communityGroups/$(id)).data.ownerId == request.auth.uid;
         // members may leave; owner may not (no transfer flow)

@@ -49,3 +49,6 @@ site
 .firebase
 out
 *-debug.log
+
+!.env.example
+.expo
