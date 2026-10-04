@@ -1,6 +1,7 @@
 packages:
   - apps/*
   - packages/*
+  - tools/*
 allowBuilds:
   "@firebase/util": true
   esbuild: true
