@@ -4,6 +4,7 @@ packages:
   - tools/*
   - functions
 allowBuilds:
+  core-js: false
   "@firebase/util": true
   esbuild: true
   protobufjs: true
