@@ -46,6 +46,12 @@ function VenueCard({ m, distanceKm }: { m: MosqueVenue; distanceKm?: number | nu
           {verified ? "Verified by volunteers" : "Awaiting verification"}
         </span>
       </div>
+      {m.photoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={m.photoUrl} alt={`Photo of ${m.name}`} loading="lazy" className="mt-3 aspect-video w-full rounded-xl object-cover" />
+      ) : (
+        <div className="mt-3 flex aspect-[4/1] w-full items-center justify-center rounded-xl border border-dashed border-line text-sm text-muted">Photo unavailable</div>
+      )}
       <p className="mt-1 text-sm text-muted">
         {m.type} · {m.area}, {m.city}
       </p>

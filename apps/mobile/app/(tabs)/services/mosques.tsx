@@ -1,6 +1,6 @@
 import * as Location from "expo-location";
 import { useMemo, useState } from "react";
-import { Linking } from "react-native";
+import { Image, Linking } from "react-native";
 import {
   MOSQUES,
   buildGoogleMapsUrl,
@@ -26,6 +26,11 @@ function Venue({ m, km }: { m: MosqueVenue; km?: number | null }) {
   return (
     <Card>
       <Heading>{m.name}</Heading>
+      {m.photoUrl ? (
+        <Image source={{ uri: m.photoUrl }} accessibilityLabel={t("mq.photoOf", { name: m.name })} style={{ width: "100%", aspectRatio: 16 / 9, borderRadius: 12 }} resizeMode="cover" />
+      ) : (
+        <Body muted>{t("mq.noPhoto")}</Body>
+      )}
       <Body muted>{`${m.type} · ${m.area}, ${m.city}`}</Body>
       <Body bold>{verified ? t("mq.verified") : t("mq.pending")}</Body>
       <Body>{m.address}</Body>

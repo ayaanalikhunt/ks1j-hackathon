@@ -5,6 +5,7 @@ import {
   buildGoogleMapsUrl,
   extractMosqueQuery,
   findNearbyShiaMosques,
+  findPossibleDuplicates,
   findNearestFridayMosque,
   isFriday,
   normalizeUnicode,
@@ -131,5 +132,24 @@ describe("nearby and maps", () => {
   it("the map link comes from the selected venue only", () => {
     expect(buildGoogleMapsUrl(base)).toBe("https://www.google.com/maps/search/?api=1&query=18.95%2C72.83");
     expect(buildGoogleMapsUrl(MOSQUES[0])).toContain(encodeURIComponent(MOSQUES[0].address));
+  });
+});
+
+describe("duplicate detection", () => {
+  it("flags an alias match from the source list", () => {
+    const r = findPossibleDuplicates({ name: "Vasai Mehfil" }, MOSQUES);
+    expect(r[0].mosque.id).toBe("mmr-mehfil-panjatani-vasai");
+  });
+  it("needs two signals for HIGH confidence", () => {
+    const name = findPossibleDuplicates({ name: "Haidari Masjid" }, MOSQUES).find((x) => x.mosque.id === "mumbai-haidari-jari-mari");
+    expect(name?.confidence).toBe("HIGH"); // exact alias
+    const phone = findPossibleDuplicates({ name: "Something else", phone: "84199 37660" }, MOSQUES);
+    expect(phone[0]).toMatchObject({ confidence: "MEDIUM", reasons: ["same phone"] });
+    const both = findPossibleDuplicates({ name: "Haidari Shia", phone: "+91 84199 37660" }, MOSQUES);
+    expect(both[0]).toMatchObject({ confidence: "HIGH" });
+  });
+  it("does not match unrelated names on generic words", () => {
+    expect(findPossibleDuplicates({ name: "Shia Masjid" }, MOSQUES)).toEqual([]);
+    expect(findPossibleDuplicates({ name: "Palghar Mosque" }, MOSQUES)).toEqual([]);
   });
 });

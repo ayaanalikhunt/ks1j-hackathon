@@ -2,7 +2,7 @@
 
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { useMemo, useState } from "react";
-import { formatDateTime, hasVerifiedPin, type MosqueVenue } from "@ks1j/shared";
+import { PENDING_MOSQUE_CANDIDATES, findPossibleDuplicates, formatDateTime, hasVerifiedPin, type MosqueVenue } from "@ks1j/shared";
 import { Banner, Button, Card, Field, PageHeader } from "@/components/ui";
 import { auth } from "@/lib/firebase";
 import { useMosques } from "@/lib/useMosques";
@@ -93,6 +93,26 @@ export default function AdminMosques() {
     <>
       <PageHeader eyebrow="Committee dashboard" title="Mosque verification" intro={`${done} of ${mosques.length} venues verified. Check each venue yourself (call or visit), then record what you found.`} />
       {!live && <div className="mb-4"><Banner kind="error">The mosques collection is empty, so nothing here can be saved yet. Run <code>node tools/seed/seed-mosques.mjs</code> once to load the 36 source venues.</Banner></div>}
+      <Card className="mb-4">
+        <h2 className="font-display text-xl">Unresolved names from members</h2>
+        <p className="mt-1 text-sm text-muted">Never merged automatically. Check each one and, if it is the same place, add the name as an alias when you verify that venue.</p>
+        <ul className="mt-3 space-y-2">
+          {PENDING_MOSQUE_CANDIDATES.map((c) => {
+            const hits = findPossibleDuplicates({ name: c.submittedName }, mosques);
+            return (
+              <li key={c.id} className="rounded-xl border border-line p-3 text-sm">
+                <p className="font-semibold">{c.submittedName}</p>
+                {c.notes && <p className="text-muted">{c.notes}</p>}
+                <p className="mt-1">
+                  {hits.length === 0
+                    ? "No likely match in the directory. Verify separately."
+                    : `Possible match: ${hits.map((h) => `${h.mosque.name} (${h.confidence.toLowerCase()}: ${h.reasons.join(", ")})`).join("; ")}`}
+                </p>
+              </li>
+            );
+          })}
+        </ul>
+      </Card>
       <div className="mb-4"><Field label="Find a venue" value={q} onChange={(e) => setQ(e.target.value)} /></div>
       <div className="space-y-3">
         {rows.map((m) => (

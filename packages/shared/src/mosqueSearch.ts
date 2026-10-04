@@ -293,3 +293,52 @@ export function buildGoogleMapsUrl(m: MosqueVenue): string {
 export function buildAppleMapsUrl(m: MosqueVenue): string {
   return `https://maps.apple.com/?q=${encodeURIComponent(`${m.name}, ${m.address}`)}`;
 }
+
+// ---------- Duplicate detection (never merges: it only flags for a person to decide) ----------
+
+export interface DuplicateCandidate {
+  name: string;
+  aliases?: string[];
+  phone?: string;
+  address?: string;
+  postalCode?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
+export interface DuplicateMatch {
+  mosque: MosqueVenue;
+  confidence: "HIGH" | "MEDIUM";
+  reasons: string[];
+}
+
+const NAME_NOISE = new Set(["masjid", "mosque", "shia", "jama", "imambargah", "imambara", "imambada", "e", "the", "a.s", "s.a", "a.t.f.s"]);
+const nameTokens = (s: string) => new Set(looseTokens(s).filter((t) => !NAME_NOISE.has(t) && t.length > 1));
+const digits = (s?: string) => (s ?? "").replace(/\D/g, "").slice(-10);
+
+/** Venues that may be the same place as a new submission, with the reasons. HIGH needs two independent signals. */
+export function findPossibleDuplicates(c: DuplicateCandidate, mosques: MosqueVenue[]): DuplicateMatch[] {
+  const mine = [c.name, ...(c.aliases ?? [])].map(nameTokens);
+  const out: DuplicateMatch[] = [];
+  for (const m of mosques) {
+    const reasons: string[] = [];
+    let best = 0;
+    for (const theirs of [m.name, ...m.aliases].map(nameTokens)) {
+      for (const a of mine) {
+        if (!a.size || !theirs.size) continue;
+        const shared = [...a].filter((t) => theirs.has(t)).length;
+        best = Math.max(best, shared / Math.min(a.size, theirs.size));
+      }
+    }
+    if (best >= 0.99) reasons.push("same name or alias");
+    else if (best >= 0.5) reasons.push("similar name");
+    if (digits(c.phone).length === 10 && digits(c.phone) === digits(m.phone)) reasons.push("same phone");
+    if (hasCoords(m) && typeof c.latitude === "number" && typeof c.longitude === "number" && haversineDistanceKm(c.latitude, c.longitude, m.latitude!, m.longitude!) <= 0.15)
+      reasons.push("within 150 m");
+    if (c.postalCode && c.postalCode === m.postalCode && best >= 0.5) reasons.push("same postal code");
+    if (reasons.length === 0) continue;
+    const strong = reasons.filter((r) => r !== "similar name").length;
+    out.push({ mosque: m, confidence: strong >= 2 || (strong >= 1 && best >= 0.5) ? "HIGH" : "MEDIUM", reasons });
+  }
+  return out.sort((x, y) => (x.confidence === y.confidence ? y.reasons.length - x.reasons.length : x.confidence === "HIGH" ? -1 : 1));
+}
