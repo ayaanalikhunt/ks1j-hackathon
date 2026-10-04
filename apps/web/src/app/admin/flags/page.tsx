@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { FLAG_LABELS } from "@ks1j/shared";
 import { Banner, Button, Card, PageHeader } from "@/components/ui";
+import { FurtherChecks } from "@/components/FurtherChecks";
 import { useAuth } from "@/lib/auth";
 import { decideFlag, useFlags } from "@/lib/flags";
 
@@ -25,7 +26,7 @@ export default function FraudFlags() {
       <PageHeader
         eyebrow="Committee dashboard"
         title="Fraud flags"
-        intro="Raised automatically when the same person or household already has an open case. A flag is a question, not a verdict: a verifier compares the cases and decides."
+        intro="The first list is raised automatically when the same person or household already has an open case. A flag is a question, not a verdict: a verifier compares the cases and decides."
       />
       {(msg || error) && <div className="mb-3"><Banner kind={error ? "error" : "info"}>{error ?? msg}</Banner></div>}
       <label className="mb-4 flex min-h-11 items-center gap-2">
@@ -57,6 +58,7 @@ export default function FraudFlags() {
           );
         })}
       </div>
+      <FurtherChecks />
     </>
   );
 }

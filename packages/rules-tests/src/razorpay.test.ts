@@ -146,6 +146,17 @@ describe("razorpay donations", () => {
     expect((await db().doc(`ledger/refund-${id}`).get()).get("direction")).toBe("out");
   });
 
+  it("a donor cannot give to their own case, and a double click returns the same order", async () => {
+    await db().doc("cases/rz-own").set({ status: "published", applicantId: "rz-donor", amountRequested: 5000, raised: 0, number: 31, title: "T" });
+    await expect(call(donor, "createDonationOrder", { consent: true, amount: 200, currency: "INR", caseId: "rz-own" })).rejects.toThrow(/own case/);
+    const p = { consent: true, amount: 777, currency: "INR", purpose: "sadaqah" };
+    const first = await call(donor, "createDonationOrder", p);
+    const second = await call(donor, "createDonationOrder", p);
+    expect(second.donationId).toBe(first.donationId);
+    expect(second.orderId).toBe(first.orderId);
+    const other = await call(donor, "createDonationOrder", { ...p, amount: 778 });
+    expect(other.donationId).not.toBe(first.donationId);
+  });
   it("only admins change the forex markup, and the change is audited", async () => {
     await expect(call(donor, "updatePaymentSettings", { fxMarkupPercent: 0 })).rejects.toThrow(/Admins only/);
     await expect(call(admin, "updatePaymentSettings", { fxMarkupPercent: 50 })).rejects.toThrow(/between/);

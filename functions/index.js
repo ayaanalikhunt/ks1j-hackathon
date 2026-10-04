@@ -112,6 +112,8 @@ exports.payOutCase = onCall(REGION, async (req) => {
   const { caseId } = req.data ?? {};
   if (typeof caseId !== "string") throw new HttpsError("invalid-argument", "caseId is required.");
   const ref = db.doc(`cases/${caseId}`);
+  const pre = await ref.get();
+  if (pre.exists) await require("./lib/conflict").assertNotOwnCase(db, uid, pre.data());
 
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
@@ -244,3 +246,4 @@ Object.assign(exports, require("./allocation"));
 Object.assign(exports, require("./publicCase"));
 
 Object.assign(exports, require("./report"));
+Object.assign(exports, require("./fraud"));

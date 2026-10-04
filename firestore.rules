@@ -81,10 +81,12 @@ service cloud.firestore {
       allow update: if (role() == 'verifier' || isAdmin()) && resource.data.status == 'submitted'
         && request.resource.data.status == 'verified'
         && request.resource.data.verifiedBy == request.auth.uid
+        && resource.data.applicantId != request.auth.uid // never your own case
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'verifiedBy', 'verifiedAt', 'beneficiarySadaatVerified', 'sadaatCheckedBy']);
       allow update: if (role() == 'trustee' || isAdmin()) && resource.data.status == 'verified'
         && request.resource.data.status == 'approved'
         && resource.data.verifiedBy != request.auth.uid
+        && resource.data.applicantId != request.auth.uid // never your own case
         // No ID is not a rejection, but it must be cleared another way (or by a recorded emergency exception) before approval.
         && (resource.data.get('idProofType', 'aadhaar') != 'none'
             || resource.data.get('emergencyException', null) != null
@@ -95,6 +97,7 @@ service cloud.firestore {
       allow update: if (role() == 'trustee' || isAdmin()) && resource.data.status == 'approved'
         && request.resource.data.status == 'published'
         && request.resource.data.publishedBy == request.auth.uid
+        && resource.data.applicantId != request.auth.uid // never your own case
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'publishedBy', 'publishedAt']);
       // Cancel/decline: any staff member, before payout, with a required reason.
       allow update: if isStaff() && resource.data.status in ['submitted', 'verified', 'approved']
@@ -236,6 +239,11 @@ service cloud.firestore {
         && request.resource.data.kind in ['same_applicant', 'same_household']
         && request.resource.data.keys().hasOnly(['caseId', 'otherId', 'kind', 'status', 'by', 'at']);
       allow delete: if false;
+    }
+    // A person's decision on an automatic fraud or conflict-of-interest finding. Written only by decideFraudFlag, which audits it.
+    match /fraudReviews/{id} {
+      allow read: if isStaff();
+      allow write: if false;
     }
     match /handovers/{id} {
       allow read: if isStaff();

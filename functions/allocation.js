@@ -5,6 +5,8 @@ const { HttpsError, onCall } = require("firebase-functions/v2/https");
 const { canAllocate, caseRefOf, reconcileDonation, PURPOSES } = require("./lib/allocation");
 const { audit, caseEvent } = require("./lib/settle");
 const { flush, queue } = require("./lib/notify");
+const { assertDonorIsNotApplicant, assertNotOwnCase } = require("./lib/conflict");
+const { keyOf } = require("./lib/fraud");
 const { refreshTransparency } = require("./lib/transparency");
 
 const db = getFirestore();
@@ -44,6 +46,15 @@ exports.allocateDonation = onCall(REGION, async (req) => {
   }
   if (new Set(allocations.map((a) => a.caseId)).size !== allocations.length) throw new HttpsError("invalid-argument", "List each case once.");
 
+  // Conflicts of interest are checked first: the admin must not be the applicant, and a donor's money must not return to them.
+  const pre = await db.doc(`donations/${donationId}`).get();
+  for (const a of allocations) {
+    const cs = await db.doc(`cases/${a.caseId}`).get();
+    if (cs.exists) {
+      await assertNotOwnCase(db, uid, cs.data());
+      await assertDonorIsNotApplicant(db, pre.get("payerId") ?? pre.get("donorId"), cs.data());
+    }
+  }
   const notes = [];
   await db.runTransaction(async (tx) => {
     notes.length = 0;
@@ -134,6 +145,23 @@ exports.createDisbursement = onCall(REGION, async (req) => {
   if (typeof allocationId !== "string" || !pos(amount) || !METHODS.includes(method)) throw new HttpsError("invalid-argument", "Allocation, amount and method are required.");
   const threshold = await checkerThreshold();
   const needsChecker = amount >= threshold;
+
+  const al = await db.doc(`allocations/${allocationId}`).get();
+  if (al.exists && al.get("caseId")) {
+    const cs = await db.doc(`cases/${al.get("caseId")}`).get();
+    if (cs.exists) await assertNotOwnCase(db, uid, cs.data());
+  }
+  // The same payout entered twice, a receipt reused, or the same proof attached to two payouts.
+  const referenceKey = keyOf(referenceNumber);
+  const proofKey = keyOf(proofPath);
+  const earlier = (await db.collection("disbursements").where("allocationId", "==", allocationId).get()).docs.filter((x) => ["completed", "pending_approval"].includes(x.get("status")));
+  const recent = earlier.find((x) => x.get("amount") === amount && x.get("method") === method && x.get("createdAt") && Date.now() - x.get("createdAt").toMillis() < 10 * 60_000);
+  if (recent && req.data?.confirmDuplicate !== true) throw fail("An identical payout from this allocation was recorded a few minutes ago. If this is a second payment on purpose, confirm it.");
+  for (const [field, key, what] of [["referenceKey", referenceKey, "reference number"], ["proofKey", proofKey, "proof document"]]) {
+    if (!key) continue;
+    const used = await db.collection("disbursements").where(field, "==", key).limit(1).get();
+    if (!used.empty) throw fail(`That ${what} was already used on another payout.`);
+  }
   let id = "";
   const notes = [];
 
@@ -151,6 +179,7 @@ exports.createDisbursement = onCall(REGION, async (req) => {
       allocationId, donationId: a.get("donationId"), donorId: a.get("donorId") ?? null, caseId: a.get("caseId") ?? null,
       amount, method, currency: "INR", processedBy: uid, status: needsChecker ? "pending_approval" : "completed",
       proofStatus: proofPath ? "pending" : "none", createdAt: FieldValue.serverTimestamp(),
+      ...(referenceKey ? { referenceKey } : {}), ...(proofKey ? { proofKey } : {}),
       ...(needsChecker ? {} : { completedAt: FieldValue.serverTimestamp() }),
     });
     tx.create(ref.collection("private").doc("details"), {
@@ -175,6 +204,11 @@ exports.decideDisbursement = onCall(REGION, async (req) => {
   if (typeof id !== "string" || typeof approve !== "boolean") throw new HttpsError("invalid-argument", "A disbursement and a decision are required.");
   if (!approve && !(typeof reason === "string" && reason.trim().length >= 5)) throw new HttpsError("invalid-argument", "Say why it is rejected.");
   const notes = [];
+  const pend = await db.doc(`disbursements/${id}`).get();
+  if (pend.exists && pend.get("caseId")) {
+    const cs = await db.doc(`cases/${pend.get("caseId")}`).get();
+    if (cs.exists) await assertNotOwnCase(db, uid, cs.data());
+  }
   await db.runTransaction(async (tx) => {
     notes.length = 0;
     const ref = db.doc(`disbursements/${id}`);
@@ -223,6 +257,8 @@ exports.closeCase = onCall(REGION, async (req) => {
   const uid = await requireAdmin(req);
   const { caseId } = req.data ?? {};
   if (typeof caseId !== "string") throw new HttpsError("invalid-argument", "A case is required.");
+  const pre = await db.doc(`cases/${caseId}`).get();
+  if (pre.exists) await assertNotOwnCase(db, uid, pre.data());
   const allocs = await db.collection("allocations").where("caseId", "==", caseId).where("status", "==", "allocated").get();
   const notes = [];
   await db.runTransaction(async (tx) => {

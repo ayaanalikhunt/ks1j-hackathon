@@ -7,6 +7,7 @@ const { computeQuote, fetchRateToInr, methodsFor, SUPPORTED } = require("./lib/f
 const { paymentMatches, publicReference, verifyPaymentSignature, verifyWebhookSignature } = require("./lib/razorpay-core");
 const { audit, settleDonation, caseEvent } = require("./lib/settle");
 const { flush, queue } = require("./lib/notify");
+const { assertDonorIsNotApplicant } = require("./lib/conflict");
 const { PURPOSES, VISIBILITY } = require("./lib/allocation");
 const { refreshTransparency } = require("./lib/transparency");
 
@@ -111,6 +112,7 @@ exports.createDonationOrder = onCall({ ...REGION, secrets: [KEY_SECRET] }, async
     const c = await db.doc(`cases/${d.caseId}`).get();
     if (!c.exists || c.get("status") !== "published") throw new HttpsError("failed-precondition", "That case is not open for donations.");
     caseId = d.caseId;
+    await assertDonorIsNotApplicant(db, req.auth.uid, c.data());
     const sadaat = c.get("beneficiarySadaatVerified") === true;
     fund = d.fund === "sehme_sadaat" ? "sehme_sadaat" : d.fund === "general" ? "general" : sadaat ? "sehme_sadaat" : "general";
     if (fund === "sehme_sadaat" && !sadaat) throw new HttpsError("failed-precondition", "Sehme Sadaat goes only to a verified Sadaat case.");
@@ -125,6 +127,11 @@ exports.createDonationOrder = onCall({ ...REGION, secrets: [KEY_SECRET] }, async
   } else if (d.fund) {
     throw new HttpsError("invalid-argument", "Choose a case or a fund that accepts online gifts.");
   }
+
+  // A double click or a retry must not create a second donation: reuse an identical order made in the last two minutes.
+  const open = await db.collection("donations").where("payerId", "==", req.auth.uid).where("status", "==", "pending").get();
+  const same = open.docs.find((x) => x.get("amount") === q.donationInr && x.get("displayCurrency") === q.displayCurrency && (x.get("caseId") ?? null) === caseId && (x.get("institutionId") ?? null) === institutionId && x.get("purpose") === purpose && x.get("createdAt") && Date.now() - x.get("createdAt").toMillis() < 120_000);
+  if (same) return { donationId: same.id, orderId: same.get("orderId"), keyId: KEY_ID.value(), reference: same.get("publicReference"), quote: q, reused: true };
 
   const counter = db.doc("counters/donations");
   const donationRef = db.collection("donations").doc();
