@@ -1,11 +1,25 @@
 "use client";
 
 import { doc, onSnapshot } from "firebase/firestore";
+import { getFunctions, httpsCallable } from "firebase/functions";
+import Link from "next/link";
 import { useEffect, useState } from "react";
-import { formatRupees } from "@ks1j/shared";
+import { CASE_STATUS_LABELS, CASE_TYPE_LABELS, NEED_CATEGORIES, formatRupees, type CaseType } from "@ks1j/shared";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Banner, Card, PageHeader } from "@/components/ui";
-import { db } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
+
+interface RecentCase {
+  reference: string;
+  needCategory: string | null;
+  type: string | null;
+  emergency: boolean;
+  status: string;
+  requested: number;
+  raised: number;
+  disbursed: number;
+}
+const listCases = httpsCallable<unknown, { cases: RecentCase[] }>(getFunctions(auth.app, "asia-south1"), "listPublicCases");
 
 interface Totals {
   totalDonated: number;
@@ -30,6 +44,10 @@ function Stat({ label, value }: { label: string; value: string | number }) {
 export default function Transparency() {
   const [t, setT] = useState<Totals | null | undefined>(undefined);
   useEffect(() => onSnapshot(doc(db, "publicStats", "transparency"), (d) => setT((d.data() as Totals) ?? null), () => setT(null)), []);
+  const [recent, setRecent] = useState<RecentCase[] | null>(null);
+  useEffect(() => {
+    listCases({}).then((r) => setRecent(r.data.cases)).catch(() => setRecent([]));
+  }, []);
   const unallocated = t ? t.totalDonated - t.totalAllocated : 0;
   return (
     <>
@@ -60,6 +78,21 @@ export default function Transparency() {
             </p>
           </>
         )}
+        <h2 className="mb-3 mt-10 font-display text-2xl">Recent cases</h2>
+        {recent === null && <p className="text-muted">Loading…</p>}
+        {recent && recent.length === 0 && <Banner>No verified cases are currently available.</Banner>}
+        <div className="grid gap-3 sm:grid-cols-2">
+          {(recent ?? []).map((c) => (
+            <Link key={c.reference} href={`/cases/timeline?ref=${c.reference}`}>
+              <Card className="h-full">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand">{c.reference}{c.emergency ? " · Emergency" : ""}</p>
+                <h3 className="mt-1 text-lg">{(c.needCategory && NEED_CATEGORIES[c.needCategory]) || CASE_TYPE_LABELS[c.type as CaseType] || "Assistance"}</h3>
+                <p className="num mt-1">{formatRupees(c.raised)} <span className="font-normal text-muted">of {formatRupees(c.requested)} raised</span></p>
+                <p className="text-sm text-muted">{formatRupees(c.disbursed)} paid out · {CASE_STATUS_LABELS[c.status] ?? c.status}</p>
+              </Card>
+            </Link>
+          ))}
+        </div>
       </main>
     </>
   );

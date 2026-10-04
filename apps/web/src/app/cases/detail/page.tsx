@@ -75,7 +75,10 @@ function Detail() {
           To protect the family&apos;s dignity, their name and contact details are hidden. The Jamaat knows who they are and has checked the need.
         </p>
       </Card>
-      <LinkButton href={`/donate?caseId=${c.caseId}`}>Give to this case</LinkButton>
+      <div className="flex flex-wrap gap-3">
+        <LinkButton href={`/donate?caseId=${c.caseId}`}>Give to this case</LinkButton>
+        <Link href={`/cases/timeline?ref=${casePublicId(c)}`} className="inline-flex min-h-12 items-center rounded-xl border border-line px-5 font-semibold">View case timeline</Link>
+      </div>
     </>
   );
 }

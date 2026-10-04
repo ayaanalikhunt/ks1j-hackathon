@@ -240,3 +240,5 @@ exports.decideHardship = onCall(REGION, async (req) => {
 if (process.env.ENABLE_RAZORPAY === "true") Object.assign(exports, require("./razorpay"));
 
 Object.assign(exports, require("./allocation"));
+
+Object.assign(exports, require("./publicCase"));
