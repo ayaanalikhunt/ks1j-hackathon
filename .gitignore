@@ -52,3 +52,8 @@ out
 
 !.env.example
 .expo
+
+# built APK is served from hosting, not versioned
+apps/web/public/downloads/*.apk
+*.bundle
+apps/mobile/gradle-build.log

@@ -1,12 +1,10 @@
 "use client";
 
-import { doc, updateDoc } from "firebase/firestore";
+import Link from "next/link";
 import { useState } from "react";
-import { canApprove, formatRupees, isAdminLike } from "@ks1j/shared";
+import { CASE_STATUS_LABELS, CATEGORY_LABELS, formatRupees } from "@ks1j/shared";
 import { Table } from "@/components/Table";
-import { Banner, Button, PageHeader } from "@/components/ui";
-import { useAuth } from "@/lib/auth";
-import { db } from "@/lib/firebase";
+import { PageHeader } from "@/components/ui";
 import { useCollection } from "@/lib/useCollection";
 
 interface Case {
@@ -14,74 +12,57 @@ interface Case {
   status: string;
   description?: string;
   amountRequested?: number;
-  verifiedBy?: string;
-  approvedBy?: string;
 }
 
+const FILTERS = [
+  ["all", "All"],
+  ["submitted", "To verify"],
+  ["verified", "To approve"],
+  ["approved", "To pay out"],
+  ["disbursed", "Paid out"],
+  ["declined", "Cancelled"],
+] as const;
+
 export default function AdminCases() {
-  const { user, member } = useAuth();
   const { rows, error } = useCollection<Case>("cases");
-  const [msg, setMsg] = useState<string | null>(null);
-  const uid = user?.uid ?? "";
-
-  async function act(id: string, patch: Record<string, unknown>) {
-    setMsg(null);
-    try {
-      await updateDoc(doc(db, "cases", id), patch);
-    } catch (e) {
-      setMsg("Not allowed: " + (e as Error).message);
-    }
-  }
-
+  const [filter, setFilter] = useState<(typeof FILTERS)[number][0]>("all");
+  const shown = rows.filter((r) => filter === "all" || r.status === filter);
   return (
     <>
       <PageHeader
         eyebrow="Committee dashboard"
         title="Cases"
-        intro="A verifier verifies. A different trustee approves. The database enforces this."
+        intro="Open a case to see the details, then accept it, approve it, hand over the money or cancel it. A different person must approve than verified."
       />
-      {msg && <Banner kind="error">{msg}</Banner>}
+      <div className="mb-3 flex flex-wrap gap-2">
+        {FILTERS.map(([key, label]) => {
+          const n = key === "all" ? rows.length : rows.filter((r) => r.status === key).length;
+          return (
+            <button
+              key={key}
+              onClick={() => setFilter(key)}
+              className={`min-h-10 rounded-full border px-4 text-sm ${filter === key ? "border-brand bg-brand/15 font-semibold" : "border-line bg-card"}`}
+            >
+              {label} ({n})
+            </button>
+          );
+        })}
+      </div>
       <Table<Case>
-        rows={rows}
+        rows={shown}
         error={error}
+        empty="No cases in this view."
         cols={[
-          { head: "Category", cell: (r) => r.category },
-          { head: "Description", cell: (r) => r.description ?? "" },
+          { head: "Category", cell: (r) => CATEGORY_LABELS[r.category] ?? r.category },
+          { head: "Need", cell: (r) => <span className="line-clamp-2">{r.description ?? ""}</span> },
           { head: "Requested", cell: (r) => formatRupees(r.amountRequested ?? 0) },
-          { head: "Status", cell: (r) => r.status },
+          { head: "Status", cell: (r) => CASE_STATUS_LABELS[r.status] ?? r.status },
           {
-            head: "Action",
+            head: "",
             cell: (r) => (
-              <div className="flex gap-2">
-                {member?.role === "verifier" && r.status === "submitted" && (
-                  <Button className="!min-h-9 !px-3" onClick={() => act(r.id, { status: "verified", verifiedBy: uid })}>
-                    Verify
-                  </Button>
-                )}
-                {member?.role === "trustee" && r.status === "verified" && (
-                  <>
-                    <Button
-                      className="!min-h-9 !px-3"
-                      disabled={!canApprove(r.verifiedBy, uid)}
-                      title={canApprove(r.verifiedBy, uid) ? "" : "A different person must approve"}
-                      onClick={() => act(r.id, { status: "approved", approvedBy: uid })}
-                    >
-                      Approve
-                    </Button>
-                    <Button
-                      className="!min-h-9 !bg-card !px-3 !text-fg border border-line"
-                      onClick={() => act(r.id, { status: "declined", approvedBy: uid })}
-                    >
-                      Decline
-                    </Button>
-                  </>
-                )}
-                {isAdminLike(member?.role) && r.status === "approved" && (
-                  <Button className="!min-h-9 !px-3" onClick={() => act(r.id, { status: "disbursed" })}>
-                    Mark disbursed
-                  </Button>
-                )}
-              </div>
+              <Link className="font-semibold text-brand underline" href={`/admin/cases/detail?id=${r.id}`}>
+                Review
+              </Link>
             ),
           },
         ]}

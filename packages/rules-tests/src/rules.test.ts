@@ -110,6 +110,42 @@ describe("Sadaat flag is staff-only", () => {
   });
 });
 
+describe("case workflow", () => {
+  const decline = (by: string, reason = "insufficient_proof", note = "No supporting documents") => ({ status: "declined", declinedBy: by, declineReason: reason, declineNote: note });
+  it("admin and super admin can verify, but never approve their own verification", async () => {
+    await assertSucceeds(updateDoc(doc(asUser("adm"), "cases", "c1"), { status: "verified", verifiedBy: "adm" }));
+    await assertFails(updateDoc(doc(asUser("adm"), "cases", "c1"), { status: "approved", approvedBy: "adm" }));
+    await assertSucceeds(updateDoc(doc(asUser("sup"), "cases", "c1"), { status: "approved", approvedBy: "sup" }));
+  });
+  it("any staff can cancel a case with a valid reason and note", async () => {
+    await assertSucceeds(updateDoc(doc(asUser("adm"), "cases", "c1"), decline("adm")));
+    await assertSucceeds(updateDoc(doc(asUser("ver1"), "cases", "cVer"), decline("ver1", "missing_sources")));
+  });
+  it("a cancel needs a reason from the list and a real note", async () => {
+    await assertFails(updateDoc(doc(asUser("adm"), "cases", "c1"), decline("adm", "because")));
+    await assertFails(updateDoc(doc(asUser("adm"), "cases", "c1"), decline("adm", "other", "no")));
+    await assertFails(updateDoc(doc(asUser("adm"), "cases", "c1"), { status: "declined", declinedBy: "adm" }));
+  });
+  it("cancel cannot be used to change other fields, impersonate, or reopen a paid case", async () => {
+    await assertFails(updateDoc(doc(asUser("adm"), "cases", "c1"), { ...decline("adm"), amountRequested: 1 }));
+    await assertFails(updateDoc(doc(asUser("adm"), "cases", "c1"), decline("ver1")));
+    await assertFails(updateDoc(doc(asUser("alice"), "cases", "c1"), decline("alice")));
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "cases", "cPaid"), { applicantId: "alice", status: "disbursed" });
+    });
+    await assertFails(updateDoc(doc(asUser("adm"), "cases", "cPaid"), decline("adm")));
+  });
+  it("payout is admin level and only after approval", async () => {
+    await assertFails(updateDoc(doc(asUser("adm"), "cases", "cVer"), { status: "disbursed", disbursedBy: "adm" }));
+    await assertFails(updateDoc(doc(asUser("tru1"), "cases", "cSyed"), { status: "disbursed", disbursedBy: "tru1" }));
+    await assertSucceeds(updateDoc(doc(asUser("adm"), "cases", "cSyed"), { status: "disbursed", disbursedBy: "adm" }));
+  });
+  it("staff can set Sadaat status, applicants cannot", async () => {
+    await assertSucceeds(updateDoc(doc(asUser("ver1"), "cases", "c1"), { beneficiarySadaatVerified: true }));
+    await assertFails(updateDoc(doc(asUser("alice"), "cases", "c1"), { beneficiarySadaatVerified: true }));
+  });
+});
+
 describe("privacy", () => {
   it("other members cannot read a case; applicant and staff can", async () => {
     await assertFails(getDoc(doc(asUser("bob"), "cases", "c1")));

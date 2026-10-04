@@ -48,17 +48,31 @@ service cloud.firestore {
         && request.resource.data.status in ['draft', 'submitted']
         && unchanged('verifiedBy') && unchanged('approvedBy') && unchanged('applicantId')
         && request.resource.data.get('beneficiarySadaatVerified', false) == resource.data.get('beneficiarySadaatVerified', false);
-      // Rule 1: verifier verifies; a DIFFERENT trustee approves.
-      allow update: if role() == 'verifier' && resource.data.status == 'submitted'
+      // Each staff transition may touch only the fields it owns.
+      // Rule 1: whoever verifies is never the person who approves.
+      allow update: if (role() == 'verifier' || isAdmin()) && resource.data.status == 'submitted'
         && request.resource.data.status == 'verified'
-        && request.resource.data.verifiedBy == request.auth.uid;
-      allow update: if role() == 'trustee' && resource.data.status == 'verified'
-        && request.resource.data.status in ['approved', 'declined']
+        && request.resource.data.verifiedBy == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'verifiedBy', 'verifiedAt']);
+      allow update: if (role() == 'trustee' || isAdmin()) && resource.data.status == 'verified'
+        && request.resource.data.status == 'approved'
         && resource.data.verifiedBy != request.auth.uid
         && request.resource.data.approvedBy == request.auth.uid
-        && unchanged('verifiedBy');
-      allow update: if isAdmin() && request.resource.data.status in ['disbursed', 'declined']
-        && unchanged('verifiedBy') && unchanged('approvedBy');
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'approvedBy', 'approvedAt']);
+      // Cancel/decline: any staff member, before payout, with a required reason.
+      allow update: if isStaff() && resource.data.status in ['submitted', 'verified', 'approved']
+        && request.resource.data.status == 'declined'
+        && request.resource.data.declinedBy == request.auth.uid
+        && request.resource.data.declineReason in ['insufficient_information', 'missing_sources', 'insufficient_proof', 'other']
+        && request.resource.data.declineNote is string && request.resource.data.declineNote.size() >= 5
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'declinedBy', 'declinedAt', 'declineReason', 'declineNote']);
+      // Payout: admin level only, and only after approval.
+      allow update: if isAdmin() && resource.data.status == 'approved'
+        && request.resource.data.status == 'disbursed'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'disbursedBy', 'disbursedAt']);
+      // Sadaat status is staff-only and is set before payout.
+      allow update: if isStaff() && resource.data.status in ['submitted', 'verified', 'approved']
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['beneficiarySadaatVerified']);
       match /documents/{docId} {
         allow read: if signedIn() && (get(/databases/$(database)/documents/cases/$(id)).data.applicantId == request.auth.uid || isStaff());
         allow create: if signedIn() && get(/databases/$(database)/documents/cases/$(id)).data.applicantId == request.auth.uid;

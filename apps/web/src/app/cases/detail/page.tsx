@@ -1,9 +1,10 @@
 "use client";
 
 import { addDoc, collection, doc, onSnapshot, serverTimestamp } from "firebase/firestore";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import { formatRupees } from "@ks1j/shared";
+import { CATEGORY_LABELS, formatRupees } from "@ks1j/shared";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Banner, Button, Card, Field, PageHeader } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
@@ -49,11 +50,36 @@ function Detail() {
   if (c === null) return <Banner>Case not found.</Banner>;
   return (
     <>
-      <PageHeader eyebrow={c.category} title="Case" intro={c.description} />
-      <Card className="space-y-3">
+      <Link href="/cases" className="mb-3 inline-block text-sm font-semibold underline">
+        ← All cases
+      </Link>
+      <PageHeader eyebrow={CATEGORY_LABELS[c.category] ?? c.category} title="Help for a family" intro={c.description} />
+      <Card className="mb-4 space-y-3">
+        <div
+          className="h-3 w-full overflow-hidden rounded-full bg-line"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={c.amountNeeded}
+          aria-valuenow={c.amountRaised}
+        >
+          <div
+            className="h-full rounded-full bg-brand"
+            style={{ width: `${Math.min(100, c.amountNeeded ? (c.amountRaised / c.amountNeeded) * 100 : 0)}%` }}
+          />
+        </div>
         <p className="tabular-nums">
-          {formatRupees(c.amountRaised)} raised of {formatRupees(c.amountNeeded)}
+          <strong>{formatRupees(c.amountRaised)}</strong> raised of {formatRupees(c.amountNeeded)}
         </p>
+        <p className="text-muted">
+          Verified and approved by two different Jamaat committee members. The Jamaat pays the hospital, school or family directly and
+          keeps proof.
+        </p>
+        <p className="text-muted">
+          To protect the family&apos;s dignity, their name and contact details are hidden. The Jamaat knows who they are and has checked
+          the need.
+        </p>
+      </Card>
+      <Card className="space-y-3">
         <Field label="Amount (₹)" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} />
         <Button onClick={give} disabled={!(Number(amount) > 0)}>
           Give to this case
