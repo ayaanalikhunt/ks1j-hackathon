@@ -78,8 +78,9 @@ body {
    once the head script has confirmed IntersectionObserver, and never for people who prefer reduced motion. */
 html.js-reveal .reveal {
   opacity: 0;
-  transform: scale(0.94);
-  transition: opacity 0.35s ease, transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform: scale(0.82);
+  /* About a second, ending with a small overshoot so it reads as something appearing, not just fading. */
+  transition: opacity 0.8s ease, transform 1s cubic-bezier(0.34, 1.45, 0.64, 1);
 }
 html.js-reveal .reveal.is-in {
   opacity: 1;

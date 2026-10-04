@@ -1,12 +1,14 @@
 import { router } from "expo-router";
 import { where } from "firebase/firestore";
-import { MEMBER_EVENT_TEXT, timeAgo, type EventKind } from "@ks1j/shared";
+import { timeAgo, type EventKind } from "@ks1j/shared";
 import { Banner, Body, Btn, Card, FeatureCard, Heading, Screen } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { useCollection } from "@/lib/firestore";
+import { useLang } from "@/lib/i18n";
 
 export default function Home() {
   const { user, member, signOut } = useAuth();
+  const { t } = useLang();
   const uid = user?.uid ?? "";
   const events = useCollection(user ? "caseEvents" : null, [where("applicantId", "==", uid)], [uid]);
   const loans = useCollection(user ? "loans" : null, [where("borrowerId", "==", uid)], [uid]);
@@ -21,31 +23,31 @@ export default function Home() {
   return (
     <Screen
       hero
-      eyebrow="Jamaat services"
-      title={member ? `Salaam, ${member.fullName.split(" ")[0]}` : "Welcome"}
-      intro="Everything from the Jamaat in one place."
+      eyebrow={t("home.eyebrow")}
+      title={member ? t("home.salaam", { name: member.fullName.split(" ")[0] }) : t("home.welcome")}
+      intro={t("home.intro")}
     >
-      {!user && <Btn label="Sign in or create account" onPress={() => router.push("/sign-in")} />}
+      {!user && <Btn label={t("home.signInOrCreate")} onPress={() => router.push("/sign-in")} />}
 
-      {updates.length > 0 && <Heading>Updates for you</Heading>}
+      {updates.length > 0 && <Heading>{t("home.updates")}</Heading>}
       {updates.map((e) => (
         <Card key={e.id}>
           <Body bold>
             {e.caseNumber ? `Case #${e.caseNumber}: ` : ""}
             {e.caseTitle}
           </Body>
-          <Body>{MEMBER_EVENT_TEXT[e.kind as EventKind] ?? ""}</Body>
+          <Body>{t(`ev.${e.kind as EventKind}` as never)}</Body>
           <Body muted>{e.at?.toDate ? timeAgo(e.at.toDate()) : "just now"}</Body>
         </Card>
       ))}
 
-      {tasks.length > 0 && <Heading>For you</Heading>}
+      {tasks.length > 0 && <Heading>{t("home.forYou")}</Heading>}
       {tasks.map((l) => (
-        <FeatureCard key={l.id} icon="coin" title="Agree your loan plan" desc="A monthly amount has been proposed for your education loan." href="/services/loans" />
+        <FeatureCard key={l.id} icon="coin" title={t("home.agreePlan.t")} desc={t("home.agreePlan.d")} href="/services/loans" />
       ))}
 
-      <Heading>Announcements</Heading>
-      {news.rows.length === 0 && <Banner>No announcements right now.</Banner>}
+      <Heading>{t("home.announcements")}</Heading>
+      {news.rows.length === 0 && <Banner>{t("home.noAnnouncements")}</Banner>}
       {news.rows.slice(0, 3).map((n) => (
         <Card key={n.id}>
           <Body bold>{n.title}</Body>
@@ -53,11 +55,11 @@ export default function Home() {
         </Card>
       ))}
 
-      <Heading>Quick actions</Heading>
-      <FeatureCard icon="heart" title="Apply for help" desc="Medical, education, ration or a scholarship." href="/services/apply" />
-      <FeatureCard icon="shield" title="Support a Sadaat case" desc="Verified needs. Sehme Sadaat goes only here." href="/give/cases" />
-      <FeatureCard icon="calculator" title="Pay Khums or Lawajam" desc="Calculate, pay and download receipts." href="/give" />
-      {user && <Btn quiet label="Sign out" onPress={() => signOut()} />}
+      <Heading>{t("home.quick")}</Heading>
+      <FeatureCard icon="heart" title={t("home.qa.apply.t")} desc={t("home.qa.apply.d")} href="/services/apply" />
+      <FeatureCard icon="shield" title={t("home.qa.sadaat.t")} desc={t("home.qa.sadaat.d")} href="/give/cases" />
+      <FeatureCard icon="calculator" title={t("home.qa.pay.t")} desc={t("home.qa.pay.d")} href="/give" />
+      {user && <Btn quiet label={t("common.signOut")} onPress={() => signOut()} />}
     </Screen>
   );
 }

@@ -3,6 +3,11 @@ import {
   canApprove,
   computeFlags,
   csvRow,
+  DICTIONARY,
+  LANGS,
+  MESSAGE_KEYS,
+  isRtl,
+  translate,
   formatDate,
   formatDateTime,
   formatTime,
@@ -178,5 +183,32 @@ describe("dates: DD/MM/YYYY and a 12-hour clock in IST", () => {
     expect(parseDmy("31/04/2026")).toBeNull();
     expect(parseDmy("2028-04-01")).toBeNull();
     expect(todayIso(new Date("2026-10-04T19:00:00Z"))).toBe("2026-10-05");
+  });
+});
+
+describe("languages", () => {
+  it("every language has every message, with the same placeholders", () => {
+    for (const lang of LANGS) {
+      for (const key of MESSAGE_KEYS) {
+        const text = DICTIONARY[lang][key];
+        expect(text, `${lang}:${key}`).toBeTruthy();
+        const holes = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
+        expect(holes(text), `${lang}:${key} placeholders`).toEqual(holes(DICTIONARY.en[key]));
+      }
+    }
+  });
+  it("translates, fills placeholders, and reads Urdu right to left", () => {
+    expect(translate("en", "home.salaam", { name: "Fatema" })).toBe("Salaam, Fatema");
+    expect(translate("hi", "home.salaam", { name: "Fatema" })).toBe("सलाम, Fatema");
+    expect(translate("ur", "tab.home")).toBe("ہوم");
+    expect(isRtl("ur")).toBe(true);
+    expect(isRtl("gu")).toBe(false);
+  });
+  it("non-English languages are really translated, not copies of English", () => {
+    for (const lang of ["gu", "hi", "ur"] as const) {
+      const same = MESSAGE_KEYS.filter((k) => DICTIONARY[lang][k] === DICTIONARY.en[k] && /[a-z]{4}/i.test(DICTIONARY.en[k]));
+      // a few strings are intentionally the same (for example the site name), but never many
+      expect(same.length, `${lang} untranslated: ${same.join(",")}`).toBeLessThan(4);
+    }
   });
 });

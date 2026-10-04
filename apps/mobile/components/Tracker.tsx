@@ -1,15 +1,17 @@
 import { Text, View } from "react-native";
-import { STAGES, STAGE_LABELS, stageIndex } from "@ks1j/shared";
+import { STAGES, stageIndex } from "@ks1j/shared";
+import { useLang } from "@/lib/i18n";
 import { F } from "@/constants/Type";
 import { useTheme } from "@/lib/theme";
 
 /** The step line every request moves along. A denied request shows one "Not approved" marker instead. */
 export function Tracker({ status }: { status: string }) {
   const t = useTheme();
+  const { t: tr } = useLang();
   if (status === "declined")
     return (
       <View style={{ borderWidth: 1, borderColor: t.danger, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12 }}>
-        <Text style={{ color: t.danger, fontFamily: F.semi, fontSize: 16 }}>Not approved</Text>
+        <Text style={{ color: t.danger, fontFamily: F.semi, fontSize: 16 }}>{tr("stage.declined")}</Text>
       </View>
     );
   const at = stageIndex(status);
@@ -32,7 +34,7 @@ export function Tracker({ status }: { status: string }) {
           >
             <Text style={{ fontSize: 14, fontFamily: now ? F.semi : F.regular, color: now ? t.onTint : done ? t.text : t.muted }}>
               {done ? "✓ " : ""}
-              {STAGE_LABELS[s]}
+              {tr(`stage.${s}` as never)}
             </Text>
           </View>
         );

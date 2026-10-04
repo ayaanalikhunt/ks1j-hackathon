@@ -1,8 +1,10 @@
 import { router } from "expo-router";
+import { LanguagePicker } from "@/components/LanguagePicker";
 import { RequireAuth } from "@/components/RequireAuth";
 import { Banner, Body, Btn, Card, Heading, Screen } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { useDocument } from "@/lib/firestore";
+import { useLang } from "@/lib/i18n";
 
 interface Household {
   name: string;
@@ -12,24 +14,23 @@ interface Household {
 
 export default function Profile() {
   const { user, member, signOut } = useAuth();
+  const { t } = useLang();
   const m = member as (typeof member & { householdId?: string; membershipVerified?: boolean }) | null;
   const household = useDocument<Household>(m?.householdId ? `households/${m.householdId}` : null);
 
   return (
-    <RequireAuth eyebrow="Services" title="Profile and household">
-      <Screen eyebrow="Your account" title="Profile and household" intro="Your membership details, and the family linked to you.">
-        <Heading>Your details</Heading>
+    <RequireAuth eyebrow={t("profile.eyebrow")} title={t("profile.title")}>
+      <Screen eyebrow={t("profile.eyebrow")} title={t("profile.title")} intro={t("profile.intro")}>
+        <Heading>{t("profile.details")}</Heading>
         <Card>
           <Body bold>{m?.fullName}</Body>
           <Body muted>{user?.email}</Body>
-          <Body>Mobile: {m?.phone}</Body>
-          <Body>{m?.membershipVerified ? "Membership: verified by the Jamaat" : "Membership: waiting for the Jamaat office to verify you"}</Body>
+          <Body>{t("profile.mobile", { phone: m?.phone ?? "" })}</Body>
+          <Body>{m?.membershipVerified ? t("profile.verified") : t("profile.waiting")}</Body>
         </Card>
 
-        <Heading>Your household</Heading>
-        {!m?.householdId && (
-          <Banner>Your household is not linked yet. The Jamaat office links you after checking who you are. Until then you cannot see family dues or loans.</Banner>
-        )}
+        <Heading>{t("profile.household")}</Heading>
+        {!m?.householdId && <Banner>{t("profile.notLinked")}</Banner>}
         {household && (
           <Card>
             <Body bold>
@@ -38,13 +39,17 @@ export default function Profile() {
             {(household.memberNames ?? []).map((n) => (
               <Body key={n}>
                 {n}
-                {n === m?.fullName ? " (you)" : ""}
+                {n === m?.fullName ? ` ${t("profile.you")}` : ""}
               </Body>
             ))}
           </Card>
         )}
 
-        <Btn quiet label="Sign out" onPress={() => signOut().then(() => router.replace("/home"))} />
+        <Heading>{t("profile.language")}</Heading>
+        <LanguagePicker />
+        <Body muted>{t("profile.languageNote")}</Body>
+
+        <Btn quiet label={t("common.signOut")} onPress={() => signOut().then(() => router.replace("/home"))} />
       </Screen>
     </RequireAuth>
   );

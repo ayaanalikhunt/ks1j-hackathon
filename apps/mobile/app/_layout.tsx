@@ -15,6 +15,7 @@ import {
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { AuthProvider } from "@/lib/auth";
+import { LangProvider } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 
 export default function RootLayout() {
@@ -33,10 +34,12 @@ export default function RootLayout() {
   if (!loaded) return null;
   return (
     <AuthProvider>
+      <LangProvider>
       <StatusBar style="auto" />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: t.bg } }}>
         <Stack.Screen name="sign-in" options={{ presentation: "modal" }} />
       </Stack>
+      </LangProvider>
     </AuthProvider>
   );
 }

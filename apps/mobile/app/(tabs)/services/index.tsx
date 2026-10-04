@@ -1,14 +1,16 @@
 import { FeatureCard, Screen } from "@/components/ui";
+import { useLang } from "@/lib/i18n";
 
 export default function Services() {
+  const { t } = useLang();
   return (
-    <Screen hero eyebrow="Services" title="How can we help?" intro="Welfare, scholarships and education loans. Every application is checked by two different people.">
-      <FeatureCard icon="heart" title="Ask for help" desc="Welfare or scholarship application" href="/services/apply" />
-      <FeatureCard icon="file" title="My applications" desc="See where each one stands" href="/services/mine" />
-      <FeatureCard icon="coin" title="Education loan" desc="Zero interest, no late fees" href="/services/loan-apply" />
-      <FeatureCard icon="shield" title="My loans" desc="Agree your EMI and repay" href="/services/loans" />
-      <FeatureCard icon="user" title="Profile and household" desc="Your membership details, family members and app language." href="/services/profile" />
-      <FeatureCard icon="receipt" title="Receipts" desc="Your donations and their status" href="/services/receipts" />
+    <Screen hero eyebrow={t("svc.eyebrow")} title={t("svc.title")} intro={t("svc.intro")}>
+      <FeatureCard icon="heart" title={t("svc.apply.t")} desc={t("svc.apply.d")} href="/services/apply" />
+      <FeatureCard icon="file" title={t("svc.mine.t")} desc={t("svc.mine.d")} href="/services/mine" />
+      <FeatureCard icon="coin" title={t("svc.loanApply.t")} desc={t("svc.loanApply.d")} href="/services/loan-apply" />
+      <FeatureCard icon="shield" title={t("svc.loans.t")} desc={t("svc.loans.d")} href="/services/loans" />
+      <FeatureCard icon="user" title={t("svc.profile.t")} desc={t("svc.profile.d")} href="/services/profile" />
+      <FeatureCard icon="receipt" title={t("svc.receipts.t")} desc={t("svc.receipts.d")} href="/services/receipts" />
     </Screen>
   );
 }

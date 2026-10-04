@@ -10,8 +10,12 @@ let queued = false;
 function sweep() {
   queued = false;
   const limit = window.innerHeight * 0.92;
+  let order = 0;
   for (const el of pending) {
     if (el.getBoundingClientRect().top < limit) {
+      // Several boxes arriving together pop in one after another (top to bottom), not all at once.
+      el.style.transitionDelay = `${Math.min(order, 5) * 140}ms`;
+      order++;
       el.classList.add("is-in");
       pending.delete(el);
     }

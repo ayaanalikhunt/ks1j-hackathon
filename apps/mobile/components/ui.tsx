@@ -5,13 +5,21 @@ import { createContext, useContext, useEffect, useRef, type ReactNode } from "re
 import { AccessibilityInfo, Animated, Dimensions, Easing, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { BODY, D, F, cardShadow } from "@/constants/Type";
+import { useLang } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
+
+/** Urdu reads right to left: align the text to the right and set the reading direction. */
+const useDir = () => {
+  const { rtl } = useLang();
+  return rtl ? ({ textAlign: "right", writingDirection: "rtl" } as const) : null;
+};
 
 const HERO_GREEN = "#0b4d3a";
 const HERO_GOLD = "#c9a24a";
 
 /** Deep-green banner with a gold mihrab arch, used by the tab roots (see the brand pack). */
 function HeroHeader({ eyebrow, title, intro }: { eyebrow: string; title: string; intro?: string }) {
+  const dir = useDir();
   return (
     <View style={[s.hero, cardShadow]}>
       <Svg width={120} height={170} viewBox="0 0 200 300" style={s.heroArch} fill="none" stroke={HERO_GOLD} strokeWidth={3}>
@@ -25,10 +33,10 @@ function HeroHeader({ eyebrow, title, intro }: { eyebrow: string; title: string;
           KS<Text style={{ color: HERO_GOLD }}>1</Text>J
         </Text>
       </View>
-      <Text style={[s.eyebrow, { color: HERO_GOLD }]}>{eyebrow.toUpperCase()}</Text>
-      <Text style={[s.title, { color: "#ffffff" }]}>{title}</Text>
+      <Text style={[s.eyebrow, { color: HERO_GOLD }, dir]}>{eyebrow.toUpperCase()}</Text>
+      <Text style={[s.title, { color: "#ffffff" }, dir]}>{title}</Text>
       <View style={[s.rule, { backgroundColor: HERO_GOLD }]} />
-      {intro ? <Text style={[s.body, { color: "rgba(255,255,255,0.82)", maxWidth: "78%" }]}>{intro}</Text> : null}
+      {intro ? <Text style={[s.body, { color: "rgba(255,255,255,0.82)", maxWidth: "78%" }, dir]}>{intro}</Text> : null}
     </View>
   );
 }
@@ -74,6 +82,8 @@ function RevealScroll({ children }: { children: ReactNode }) {
   );
 }
 
+const burst: { count: number; timer: ReturnType<typeof setTimeout> | null } = { count: 0, timer: null };
+
 function Reveal({ children }: { children: ReactNode }) {
   const ctx = useContext(RevealCtx);
   const v = useRef(new Animated.Value(ctx ? 0 : 1)).current;
@@ -84,8 +94,21 @@ function Reveal({ children }: { children: ReactNode }) {
   const show = () => {
     if (shown.current) return;
     shown.current = true;
-    if (reduce.current) v.setValue(1);
-    else Animated.timing(v, { toValue: 1, duration: 340, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+    if (reduce.current) {
+      v.setValue(1);
+      return;
+    }
+    // Boxes arriving together pop in one after another. The counter resets once the burst is over.
+    const order = burst.count++;
+    if (burst.timer) clearTimeout(burst.timer);
+    burst.timer = setTimeout(() => (burst.count = 0), 250);
+    Animated.timing(v, {
+      toValue: 1,
+      duration: 900,
+      delay: Math.min(order, 5) * 130,
+      easing: Easing.out(Easing.back(1.6)),
+      useNativeDriver: true,
+    }).start();
   };
   const check = (bottom: number) => {
     if (top.current !== null && top.current < bottom - 24) show();
@@ -105,7 +128,7 @@ function Reveal({ children }: { children: ReactNode }) {
         top.current = e.nativeEvent.layout.y;
         if (ctx) check(ctx.bottom.current);
       }}
-      style={{ opacity: v, transform: [{ scale: v.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) }] }}
+      style={{ opacity: v, transform: [{ scale: v.interpolate({ inputRange: [0, 1], outputRange: [0.82, 1] }) }] }}
     >
       {children}
     </Animated.View>
@@ -127,6 +150,7 @@ export function Screen({
   children?: ReactNode;
 }) {
   const t = useTheme();
+  const dir = useDir();
   if (hero)
     return (
       <RevealScroll>
@@ -137,10 +161,10 @@ export function Screen({
   return (
     <RevealScroll>
       <View style={[s.header, cardShadow, { backgroundColor: t.card, borderColor: t.border }]}>
-        <Text style={[s.eyebrow, { color: t.tint }]}>{eyebrow.toUpperCase()}</Text>
-        <Text style={[s.title, { color: t.text }]}>{title}</Text>
-        <View style={[s.rule, { backgroundColor: t.gold }]} />
-        {intro ? <Text style={[s.body, { color: t.muted }]}>{intro}</Text> : null}
+        <Text style={[s.eyebrow, { color: t.tint }, dir]}>{eyebrow.toUpperCase()}</Text>
+        <Text style={[s.title, { color: t.text }, dir]}>{title}</Text>
+        <View style={[s.rule, { backgroundColor: t.gold }, dir && { alignSelf: "flex-end" }]} />
+        {intro ? <Text style={[s.body, { color: t.muted }, dir]}>{intro}</Text> : null}
       </View>
       {children}
     </RevealScroll>
@@ -158,12 +182,14 @@ export function Card({ children }: { children: ReactNode }) {
 
 export function Body({ children, muted, bold }: { children: ReactNode; muted?: boolean; bold?: boolean }) {
   const t = useTheme();
-  return <Text style={[s.body, { color: muted ? t.muted : t.text }, bold && { fontFamily: F.bold }]}>{children}</Text>;
+  const dir = useDir();
+  return <Text style={[s.body, { color: muted ? t.muted : t.text }, bold && { fontFamily: F.bold }, dir]}>{children}</Text>;
 }
 
 export function Heading({ children }: { children: ReactNode }) {
   const t = useTheme();
-  return <Text style={{ fontFamily: D.semi, fontSize: 22, lineHeight: 28, color: t.text }}>{children}</Text>;
+  const dir = useDir();
+  return <Text style={[{ fontFamily: D.semi, fontSize: 22, lineHeight: 28, color: t.text }, dir]}>{children}</Text>;
 }
 
 /** Large tappable menu card: soft icon tile, title, one-liner, chevron. */
@@ -183,26 +209,29 @@ export function FeatureCard({
   onPress?: () => void;
 }) {
   const t = useTheme();
+  const dir = useDir();
   const inner = (
     <Pressable
       onPress={onPress}
       // Flattened: expo-router's Link asChild merges styles by spreading, which breaks on arrays.
-      style={StyleSheet.flatten([s.feature, cardShadow, { backgroundColor: t.card, borderColor: t.border }])}
+      style={StyleSheet.flatten([s.feature, cardShadow, { backgroundColor: t.card, borderColor: t.border }, dir && { flexDirection: "row-reverse" }])}
       accessibilityRole="button"
     >
       <View style={[s.tile, { backgroundColor: t.tintSoft }]}>
         <Icon name={icon} size={26} color={t.tint} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={[s.featureTitle, { color: t.text }]}>{title}</Text>
-        <Text style={[s.body, { color: t.muted }]}>{desc}</Text>
+        <Text style={[s.featureTitle, { color: t.text }, dir]}>{title}</Text>
+        <Text style={[s.body, { color: t.muted }, dir]}>{desc}</Text>
       </View>
       {badge ? (
         <View style={[s.badge, { backgroundColor: t.tint }]}>
           <Text style={{ color: t.onTint, fontFamily: F.bold }}>{badge}</Text>
         </View>
       ) : null}
-      <Icon name="chevron-right" size={22} color={t.muted} />
+      <View style={dir ? { transform: [{ scaleX: -1 }] } : undefined}>
+        <Icon name="chevron-right" size={22} color={t.muted} />
+      </View>
     </Pressable>
   );
   return (
@@ -248,13 +277,14 @@ export function Btn({
 
 export function Field({ label, ...p }: { label: string } & TextInputProps) {
   const t = useTheme();
+  const dir = useDir();
   return (
     <View style={{ gap: 4 }}>
-      <Text style={[s.body, { color: t.text, fontFamily: F.semi }]}>{label}</Text>
+      <Text style={[s.body, { color: t.text, fontFamily: F.semi }, dir]}>{label}</Text>
       <TextInput
         placeholderTextColor={t.muted}
         {...p}
-        style={[s.input, { color: t.text, borderColor: t.border, backgroundColor: t.bg }, p.multiline && { minHeight: 96, textAlignVertical: "top" }]}
+        style={[s.input, { color: t.text, borderColor: t.border, backgroundColor: t.bg }, dir, p.multiline && { minHeight: 96, textAlignVertical: "top" }]}
       />
     </View>
   );
@@ -274,10 +304,11 @@ export function Chip({ label, on, onPress }: { label: string; on?: boolean; onPr
 
 export function Banner({ children, error }: { children: ReactNode; error?: boolean }) {
   const t = useTheme();
+  const dir = useDir();
   return (
     <Reveal>
       <View style={[s.banner, { borderColor: error ? t.danger : t.border, backgroundColor: t.card }]}>
-        <Text style={{ fontSize: BODY, fontFamily: F.regular, color: error ? t.danger : t.muted }}>{children}</Text>
+        <Text style={[{ fontSize: BODY, fontFamily: F.regular, color: error ? t.danger : t.muted }, dir]}>{children}</Text>
       </View>
     </Reveal>
   );
