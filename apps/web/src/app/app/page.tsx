@@ -34,7 +34,7 @@ export default function GetTheApp() {
         <PageHeader eyebrow="Mobile app" title="Get the KS1J app" intro="Help, giving and learning in one place. Use it in your browser now, or install it on Android." />
 
         <Card className="space-y-3">
-          <h2 className="font-display text-2xl font-bold">Open the app in your browser</h2>
+          <h2 className="font-display text-2xl">Open the app in your browser</h2>
           <p className="text-muted">Works on any phone or computer. Nothing to install. Sign in with your KS1J account.</p>
           <a href="/member/" className={`${BTN} bg-brand text-[var(--bg)]`}>
             Open the app
@@ -42,7 +42,7 @@ export default function GetTheApp() {
         </Card>
 
         <Card className="space-y-3">
-          <h2 className="font-display text-2xl font-bold">Install on Android</h2>
+          <h2 className="font-display text-2xl">Install on Android</h2>
           {apk === "ready" ? (
             <>
               <a href={APK} download="ks1j.apk" className={`${BTN} bg-[#c9a24a] text-[#1d2a24]`}>

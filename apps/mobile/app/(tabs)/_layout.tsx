@@ -1,6 +1,7 @@
 import { Tabs } from "expo-router";
 import type { IconName } from "@ks1j/shared";
 import { Icon } from "@/components/Icon";
+import { F } from "@/constants/Type";
 import { useTheme } from "@/lib/theme";
 
 // Exactly four tabs. Never add a fifth: nest everything under one of these.
@@ -20,7 +21,7 @@ export default function TabsLayout() {
         tabBarActiveTintColor: t.tint,
         tabBarInactiveTintColor: t.muted,
         tabBarStyle: { backgroundColor: t.card, borderTopColor: t.border, minHeight: 62 },
-        tabBarLabelStyle: { fontSize: 13 },
+        tabBarLabelStyle: { fontSize: 13, fontFamily: F.medium },
       }}
     >
       {TABS.map((x) => (

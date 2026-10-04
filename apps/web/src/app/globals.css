@@ -47,12 +47,29 @@
   --color-brand: var(--green);
   --color-gold: var(--gold);
   --shadow-soft: var(--shadow-soft);
-  --font-display: var(--font-playfair), Georgia, serif;
+  --font-display: var(--font-playfair), var(--font-gu), var(--font-hi), Georgia, serif;
+  --font-sans: var(--font-body), var(--font-gu), var(--font-hi), var(--font-ur), system-ui, sans-serif;
 }
 
 body {
   background: var(--bg);
   color: var(--fg);
+  /* Body copy never goes below 16px. Atkinson Hyperlegible keeps similar letters distinct. */
+  font-family: var(--font-sans);
   font-size: 16px;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.6;
+  font-feature-settings: "kern", "liga";
 }
+
+/* Text styles. Headings are Playfair at lighter weights as they get larger.
+   In the base layer so Tailwind utilities (font-semibold, etc.) can still override them. */
+@layer base {
+  h1 { font-family: var(--font-display); font-weight: 400; line-height: 1.1; letter-spacing: -0.01em; }
+  h2 { font-family: var(--font-display); font-weight: 500; line-height: 1.2; }
+  h3 { font-family: var(--font-display); font-weight: 600; line-height: 1.3; }
+  button, input, select, textarea { font-family: inherit; }
+  button { font-weight: 600; }
+  :lang(ur), [dir="rtl"] { font-family: var(--font-ur), var(--font-sans); line-height: 2; }
+}
+/* Money and counts: lining, evenly spaced figures in the body font (Playfair figures look uneven). */
+.num { font-variant-numeric: lining-nums tabular-nums; font-weight: 600; font-family: var(--font-sans); }

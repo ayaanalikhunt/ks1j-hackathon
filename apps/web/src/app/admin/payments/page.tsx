@@ -69,9 +69,9 @@ export default function AdminPayments() {
         title="Payments"
         intro="A gift stays pending until an admin confirms the money has arrived. Confirming appends a ledger entry."
       />
-      <h2 className="mb-2 font-display text-2xl font-bold">Donations</h2>
+      <h2 className="mb-2 font-display text-2xl">Donations</h2>
       <PaymentTable kind="donation" path="donations" />
-      <h2 className="mb-2 mt-6 font-display text-2xl font-bold">Loan repayments</h2>
+      <h2 className="mb-2 mt-6 font-display text-2xl">Loan repayments</h2>
       <PaymentTable kind="repayment" path="repayments" />
     </>
   );

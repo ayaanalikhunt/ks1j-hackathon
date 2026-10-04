@@ -78,7 +78,7 @@ function Row({ k, v }: { k: string; v: React.ReactNode }) {
 
 const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <Card>
-    <h2 className="mb-2 font-display text-xl font-bold">{title}</h2>
+    <h2 className="mb-2 font-display text-xl">{title}</h2>
     {children}
   </Card>
 );
@@ -231,7 +231,7 @@ function Review() {
 
           {open && (
             <Card>
-              <h2 className="mb-3 font-display text-xl font-bold">Your decision</h2>
+              <h2 className="mb-3 font-display text-xl">Your decision</h2>
               <div className="flex flex-wrap gap-3">
                 <Button disabled={busy || !giveNow || (canApproveNow && !canApprove(c.verifiedBy, uid))} onClick={() => giveNow?.()}>
                   Give this case

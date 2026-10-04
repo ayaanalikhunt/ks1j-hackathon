@@ -11,7 +11,7 @@ export function PageHeader({ eyebrow, title, intro }: { eyebrow: string; title: 
   return (
     <header className="mb-6">
       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand">{eyebrow}</p>
-      <h1 className="mt-1 font-display text-3xl font-bold sm:text-4xl">{title}</h1>
+      <h1 className="mt-1 font-display text-3xl sm:text-4xl">{title}</h1>
       <div className="mt-3 h-[3px] w-16 rounded bg-gold" />
       {intro && <p className="mt-3 max-w-2xl text-muted">{intro}</p>}
     </header>

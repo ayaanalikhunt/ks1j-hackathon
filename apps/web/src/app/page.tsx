@@ -66,7 +66,7 @@ export default function Home() {
           </svg>
           <div className="relative max-w-2xl md:max-w-[33rem]">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#c9a24a]">One Jamaat. One app.</p>
-            <h1 className="mt-3 font-display text-4xl font-bold leading-tight sm:text-6xl">Everything from the Jamaat, in one app.</h1>
+            <h1 className="mt-3 font-display text-4xl leading-tight sm:text-6xl">Everything from the Jamaat, in one app.</h1>
             <p className="mt-5 text-lg leading-relaxed text-white/80">
               Ask for help, pay Khums and Lawajam, support families in need and get answers you can trust. Every case is checked by two
               committee members, and every rupee is recorded.
@@ -85,13 +85,13 @@ export default function Home() {
 
         <section>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand">Impact</p>
-          <h2 className="mt-1 font-display text-3xl font-bold">Together so far</h2>
+          <h2 className="mt-1 font-display text-3xl">Together so far</h2>
           <div className="mt-2 h-[3px] w-14 rounded bg-gold" />
           <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {tiles.map(([label, value], i) => (
               <Card key={label} className={i === 0 ? "col-span-2 sm:col-span-1" : ""}>
                 <p className="text-sm text-muted">{label}</p>
-                <p className="mt-1 font-display text-[clamp(1.5rem,7vw,1.875rem)] font-bold tabular-nums [overflow-wrap:anywhere]">{value}</p>
+                <p className="mt-1 num text-[clamp(1.5rem,7vw,1.875rem)] [overflow-wrap:anywhere]">{value}</p>
               </Card>
             ))}
           </div>
@@ -99,12 +99,12 @@ export default function Home() {
 
         <section>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand">What you can do</p>
-          <h2 className="mt-1 font-display text-3xl font-bold">Made for every member</h2>
+          <h2 className="mt-1 font-display text-3xl">Made for every member</h2>
           <div className="mt-2 h-[3px] w-14 rounded bg-gold" />
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             {DOES.map(([t, d]) => (
               <Card key={t}>
-                <h3 className="font-display text-xl font-bold">{t}</h3>
+                <h3 className="font-display text-xl">{t}</h3>
                 <p className="mt-1 text-muted">{d}</p>
               </Card>
             ))}
@@ -113,13 +113,13 @@ export default function Home() {
 
         <section>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand">Where money goes</p>
-          <h2 className="mt-1 font-display text-3xl font-bold">How every case is handled</h2>
+          <h2 className="mt-1 font-display text-3xl">How every case is handled</h2>
           <div className="mt-2 h-[3px] w-14 rounded bg-gold" />
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
             {STEPS.map(([t, d], i) => (
               <Card key={t}>
                 <p className="text-sm font-semibold text-brand">Step {i + 1}</p>
-                <h3 className="font-display text-xl font-bold">{t}</h3>
+                <h3 className="font-display text-xl">{t}</h3>
                 <p className="mt-1 text-muted">{d}</p>
               </Card>
             ))}

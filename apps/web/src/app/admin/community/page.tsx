@@ -76,7 +76,7 @@ export default function AdminCommunity() {
           },
         ]}
       />
-      <h2 className="mb-2 mt-6 font-display text-2xl font-bold">Latest posts</h2>
+      <h2 className="mb-2 mt-6 font-display text-2xl">Latest posts</h2>
       <Table<Post>
         rows={posts.rows}
         error={posts.error}

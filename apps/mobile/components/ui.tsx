@@ -4,7 +4,7 @@ import { Link, type Href } from "expo-router";
 import type { ReactNode } from "react";
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps } from "react-native";
 import Svg, { Path } from "react-native-svg";
-import { BODY, DISPLAY, DISPLAY_BOLD, cardShadow } from "@/constants/Type";
+import { BODY, D, F, cardShadow } from "@/constants/Type";
 import { useTheme } from "@/lib/theme";
 
 const HERO_GREEN = "#0b4d3a";
@@ -75,12 +75,12 @@ export function Card({ children }: { children: ReactNode }) {
 
 export function Body({ children, muted, bold }: { children: ReactNode; muted?: boolean; bold?: boolean }) {
   const t = useTheme();
-  return <Text style={[s.body, { color: muted ? t.muted : t.text }, bold && { fontWeight: "700" }]}>{children}</Text>;
+  return <Text style={[s.body, { color: muted ? t.muted : t.text }, bold && { fontFamily: F.bold }]}>{children}</Text>;
 }
 
 export function Heading({ children }: { children: ReactNode }) {
   const t = useTheme();
-  return <Text style={{ fontFamily: DISPLAY_BOLD, fontSize: 22, color: t.text }}>{children}</Text>;
+  return <Text style={{ fontFamily: D.semi, fontSize: 22, lineHeight: 28, color: t.text }}>{children}</Text>;
 }
 
 /** Large tappable menu card: soft icon tile, title, one-liner, chevron. */
@@ -116,7 +116,7 @@ export function FeatureCard({
       </View>
       {badge ? (
         <View style={[s.badge, { backgroundColor: t.tint }]}>
-          <Text style={{ color: t.onTint, fontWeight: "700" }}>{badge}</Text>
+          <Text style={{ color: t.onTint, fontFamily: F.bold }}>{badge}</Text>
         </View>
       ) : null}
       <Icon name="chevron-right" size={22} color={t.muted} />
@@ -154,7 +154,7 @@ export function Btn({
         disabled && { opacity: 0.5 },
       ]}
     >
-      <Text style={{ fontSize: BODY, fontWeight: "700", color: quiet ? t.text : t.onTint }}>{label}</Text>
+      <Text style={{ fontSize: BODY, fontFamily: F.semi, color: quiet ? t.text : t.onTint }}>{label}</Text>
     </Pressable>
   );
 }
@@ -163,7 +163,7 @@ export function Field({ label, ...p }: { label: string } & TextInputProps) {
   const t = useTheme();
   return (
     <View style={{ gap: 4 }}>
-      <Text style={[s.body, { color: t.text, fontWeight: "600" }]}>{label}</Text>
+      <Text style={[s.body, { color: t.text, fontFamily: F.semi }]}>{label}</Text>
       <TextInput
         placeholderTextColor={t.muted}
         {...p}
@@ -180,7 +180,7 @@ export function Chip({ label, on, onPress }: { label: string; on?: boolean; onPr
       onPress={onPress}
       style={[s.chip, { borderColor: on ? t.tint : t.border, backgroundColor: on ? t.tintSoft : t.card }]}
     >
-      <Text style={{ fontSize: BODY, color: t.text }}>{label}</Text>
+      <Text style={{ fontSize: BODY, fontFamily: F.regular, color: t.text }}>{label}</Text>
     </Pressable>
   );
 }
@@ -189,7 +189,7 @@ export function Banner({ children, error }: { children: ReactNode; error?: boole
   const t = useTheme();
   return (
     <View style={[s.banner, { borderColor: error ? t.danger : t.border, backgroundColor: t.card }]}>
-      <Text style={{ fontSize: BODY, color: error ? t.danger : t.muted }}>{children}</Text>
+      <Text style={{ fontSize: BODY, fontFamily: F.regular, color: error ? t.danger : t.muted }}>{children}</Text>
     </View>
   );
 }
@@ -199,19 +199,19 @@ const s = StyleSheet.create({
   heroArch: { position: "absolute", right: 14, bottom: 0, opacity: 0.85 },
   brandRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 },
   brandLogo: { width: 40, height: 40, borderRadius: 10, backgroundColor: "#ffffff" },
-  brandWord: { color: "#ffffff", fontSize: 26, fontWeight: "800", letterSpacing: -0.5 },
+  brandWord: { color: "#ffffff", fontSize: 26, fontFamily: F.extra, letterSpacing: -0.5 },
   header: { borderWidth: 1, borderRadius: 16, padding: 18, gap: 6 },
-  eyebrow: { fontSize: 12, letterSpacing: 2, fontWeight: "700" },
-  title: { fontFamily: DISPLAY_BOLD, fontSize: 28 },
+  eyebrow: { fontSize: 12, letterSpacing: 2, fontFamily: F.semi },
+  title: { fontFamily: D.medium, fontSize: 28, lineHeight: 34 },
   rule: { height: 3, width: 56, borderRadius: 2, marginVertical: 4 },
-  body: { fontSize: BODY, lineHeight: 23 },
+  body: { fontFamily: F.regular, fontSize: BODY, lineHeight: 24 },
   card: { borderWidth: 1, borderRadius: 16, padding: 16, gap: 8 },
   feature: { flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1, borderRadius: 16, padding: 14, minHeight: 76 },
   tile: { width: 48, height: 48, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  featureTitle: { fontFamily: DISPLAY, fontSize: 19, fontWeight: "700" },
+  featureTitle: { fontFamily: D.semi, fontSize: 19, lineHeight: 24 },
   badge: { minWidth: 26, height: 26, borderRadius: 13, alignItems: "center", justifyContent: "center", paddingHorizontal: 6 },
   btn: { minHeight: 52, borderRadius: 14, alignItems: "center", justifyContent: "center", paddingHorizontal: 18 },
-  input: { minHeight: 52, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, fontSize: BODY },
+  input: { minHeight: 52, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, fontSize: BODY, fontFamily: F.regular },
   chip: { minHeight: 44, borderWidth: 1, borderRadius: 22, paddingHorizontal: 16, justifyContent: "center" },
   banner: { borderWidth: 1, borderRadius: 12, padding: 12 },
 });
