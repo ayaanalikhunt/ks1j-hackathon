@@ -57,3 +57,7 @@ out
 apps/web/public/downloads/*.apk
 *.bundle
 apps/mobile/gradle-build.log
+
+# member web app is exported from apps/mobile, never hand-edited
+apps/web/public/member
+apps/mobile/dist

@@ -9,7 +9,7 @@ export default function Learn() {
   const uid = user?.uid ?? "";
   const pending = useCollection(user ? "communityConnections" : null, [where("toId", "==", uid), where("status", "==", "pending")], [uid]);
   return (
-    <Screen eyebrow="Learn" title="Learn and connect" intro="Ask the helpdesk, meet the community and find careers support.">
+    <Screen hero eyebrow="Learn" title="Learn and connect" intro="Ask the helpdesk, meet the community and find careers support.">
       <FeatureCard icon="help" title="Helpdesk" desc="Answers from approved sources only" href="/learn/helpdesk" />
       <Heading>Community</Heading>
       <FeatureCard icon="news" title="Feed" desc="What members are sharing" href="/community/feed" />

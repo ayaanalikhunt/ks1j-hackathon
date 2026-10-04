@@ -38,8 +38,10 @@ jobs:
       - name: Build the release APK
         working-directory: apps/mobile/android
         run: ./gradlew assembleRelease --no-daemon -x lint
+      - name: Name the file ks1j.apk
+        run: mv apps/mobile/android/app/build/outputs/apk/release/app-release.apk apps/mobile/android/app/build/outputs/apk/release/ks1j.apk
       - uses: actions/upload-artifact@v4
         with:
           name: ks1j-apk
-          path: apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+          path: apps/mobile/android/app/build/outputs/apk/release/ks1j.apk
           if-no-files-found: error

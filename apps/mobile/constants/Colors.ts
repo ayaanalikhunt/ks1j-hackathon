@@ -1,13 +1,13 @@
 export const Colors = {
   light: {
-    bg: "#eef3ef",
+    bg: "#f4f6f4",
     card: "#ffffff",
     text: "#1d2a24",
     muted: "#5d6e65",
     border: "#d9e2dc",
-    tint: "#2f6b4f",
-    tintSoft: "#dcebe2",
-    gold: "#c19a3b",
+    tint: "#0b4d3a",
+    tintSoft: "#dfeae4",
+    gold: "#c9a24a",
     danger: "#b3261e",
     onTint: "#ffffff",
   },

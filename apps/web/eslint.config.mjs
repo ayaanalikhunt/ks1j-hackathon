@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated: the member app is exported from apps/mobile.
+    "public/member/**",
   ]),
 ]);
 

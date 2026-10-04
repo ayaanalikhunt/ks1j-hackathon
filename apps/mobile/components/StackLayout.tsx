@@ -12,7 +12,11 @@ export function StackLayout() {
         headerShadowVisible: false,
         contentStyle: { backgroundColor: t.bg },
         headerBackTitle: "Back",
+        headerTitle: "",
       }}
-    />
+    >
+      {/* Tab roots draw their own header card. */}
+      <Stack.Screen name="index" options={{ headerShown: false }} />
+    </Stack>
   );
 }

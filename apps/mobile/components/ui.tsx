@@ -2,23 +2,59 @@ import type { IconName } from "@ks1j/shared";
 import { Icon } from "./Icon";
 import { Link, type Href } from "expo-router";
 import type { ReactNode } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps } from "react-native";
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps } from "react-native";
+import Svg, { Path } from "react-native-svg";
 import { BODY, DISPLAY, DISPLAY_BOLD, cardShadow } from "@/constants/Type";
 import { useTheme } from "@/lib/theme";
 
-/** Every non-hero screen renders inside this: white header card with eyebrow, serif title, gold rule, intro. */
+const HERO_GREEN = "#0b4d3a";
+const HERO_GOLD = "#c9a24a";
+
+/** Deep-green banner with a gold mihrab arch, used by the tab roots (see the brand pack). */
+function HeroHeader({ eyebrow, title, intro }: { eyebrow: string; title: string; intro?: string }) {
+  return (
+    <View style={[s.hero, cardShadow]}>
+      <Svg width={120} height={170} viewBox="0 0 200 300" style={s.heroArch} fill="none" stroke={HERO_GOLD} strokeWidth={3}>
+        <Path d="M20 300V130C20 70 70 25 100 8c30 17 80 62 80 122v170" />
+        <Path d="M40 300V135C40 82 78 44 100 30c22 14 60 52 60 105v165" strokeOpacity={0.5} />
+        <Path d="M100 56v26M100 112l12-12-12-12-12 12Z" />
+      </Svg>
+      <View style={s.brandRow}>
+        <Image source={require("../assets/ks1j-logo.png")} style={s.brandLogo} />
+        <Text style={s.brandWord}>
+          KS<Text style={{ color: HERO_GOLD }}>1</Text>J
+        </Text>
+      </View>
+      <Text style={[s.eyebrow, { color: HERO_GOLD }]}>{eyebrow.toUpperCase()}</Text>
+      <Text style={[s.title, { color: "#ffffff" }]}>{title}</Text>
+      <View style={[s.rule, { backgroundColor: HERO_GOLD }]} />
+      {intro ? <Text style={[s.body, { color: "rgba(255,255,255,0.82)", maxWidth: "78%" }]}>{intro}</Text> : null}
+    </View>
+  );
+}
+
+/** Every screen renders inside this: a header card with eyebrow, serif title, gold rule, intro. `hero` is the green banner. */
 export function Screen({
   eyebrow,
   title,
   intro,
+  hero,
   children,
 }: {
   eyebrow: string;
   title: string;
   intro?: string;
+  hero?: boolean;
   children?: ReactNode;
 }) {
   const t = useTheme();
+  if (hero)
+    return (
+      <ScrollView style={{ backgroundColor: t.bg }} contentContainerStyle={{ padding: 16, gap: 12 }} keyboardShouldPersistTaps="handled">
+        <HeroHeader eyebrow={eyebrow} title={title} intro={intro} />
+        {children}
+      </ScrollView>
+    );
   return (
     <ScrollView style={{ backgroundColor: t.bg }} contentContainerStyle={{ padding: 16, gap: 12 }} keyboardShouldPersistTaps="handled">
       <View style={[s.header, cardShadow, { backgroundColor: t.card, borderColor: t.border }]}>
@@ -67,7 +103,8 @@ export function FeatureCard({
   const inner = (
     <Pressable
       onPress={onPress}
-      style={[s.feature, cardShadow, { backgroundColor: t.card, borderColor: t.border }]}
+      // Flattened: expo-router's Link asChild merges styles by spreading, which breaks on arrays.
+      style={StyleSheet.flatten([s.feature, cardShadow, { backgroundColor: t.card, borderColor: t.border }])}
       accessibilityRole="button"
     >
       <View style={[s.tile, { backgroundColor: t.tintSoft }]}>
@@ -158,6 +195,11 @@ export function Banner({ children, error }: { children: ReactNode; error?: boole
 }
 
 const s = StyleSheet.create({
+  hero: { backgroundColor: HERO_GREEN, borderRadius: 24, padding: 20, gap: 6, overflow: "hidden" },
+  heroArch: { position: "absolute", right: 14, bottom: 0, opacity: 0.85 },
+  brandRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 },
+  brandLogo: { width: 40, height: 40, borderRadius: 10, backgroundColor: "#ffffff" },
+  brandWord: { color: "#ffffff", fontSize: 26, fontWeight: "800", letterSpacing: -0.5 },
   header: { borderWidth: 1, borderRadius: 16, padding: 18, gap: 6 },
   eyebrow: { fontSize: 12, letterSpacing: 2, fontWeight: "700" },
   title: { fontFamily: DISPLAY_BOLD, fontSize: 28 },

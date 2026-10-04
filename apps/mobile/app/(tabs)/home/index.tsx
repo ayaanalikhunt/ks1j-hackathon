@@ -14,6 +14,7 @@ export default function Home() {
 
   return (
     <Screen
+      hero
       eyebrow="Jamaat services"
       title={member ? `Salaam, ${member.fullName.split(" ")[0]}` : "Welcome"}
       intro="Help, giving and learning for our community, in one place."

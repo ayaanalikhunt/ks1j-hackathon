@@ -37,6 +37,9 @@
           "imageWidth": 200
         }
       ]
-    ]
+    ],
+    "experiments": {
+      "baseUrl": "/member"
+    }
   }
 }
