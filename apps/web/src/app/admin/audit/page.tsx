@@ -35,6 +35,8 @@ const WORDS: Record<string, string> = {
   PAYMENT_SETTINGS_CHANGED: "Payment settings changed",
   CASE_COMPLETED: "Case completed",
   FRAUD_FLAG_DECIDED: "Fraud flag decided",
+  DONOR_PROFILE_VIEWED: "Donor details opened",
+  DONOR_LIST_VIEWED: "Donor list opened",
 };
 
 /** The append-only record of every sensitive action. Admins can read it; nobody can change it. */

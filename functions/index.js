@@ -267,3 +267,4 @@ Object.assign(exports, require("./publicLoan"));
 Object.assign(exports, require("./loanReminders"));
 
 Object.assign(exports, require("./ask"));
+Object.assign(exports, require("./donors"));

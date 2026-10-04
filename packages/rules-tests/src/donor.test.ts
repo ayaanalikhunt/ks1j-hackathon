@@ -43,9 +43,9 @@ describe("donor profile rules", () => {
     await assertSucceeds(setDoc(doc(as("dp-4"), "donors", "dp-4"), profile("dp-4")));
     await assertFails(updateDoc(doc(as("dp-4"), "donors", "dp-4"), { createdAt: new Date("2020-01-01"), updatedAt: serverTimestamp() }));
   });
-  it("staff can read a profile, other members cannot", async () => {
+  it("only the donor reads their profile straight from the database; staff go through the audited function", async () => {
     await assertSucceeds(setDoc(doc(as("dp-5"), "donors", "dp-5"), profile("dp-5")));
-    await assertSucceeds(getDoc(doc(as("dp-staff"), "donors", "dp-5")));
+    await assertFails(getDoc(doc(as("dp-staff"), "donors", "dp-5")));
     await assertFails(getDoc(doc(as("dp-other"), "donors", "dp-5")));
     await assertSucceeds(getDoc(doc(as("dp-5"), "donors", "dp-5")));
   });

@@ -466,7 +466,8 @@ service cloud.firestore {
     }
     // A donor's own profile and notification choices. Only they edit it; committee staff can read it.
     match /donors/{uid} {
-      allow read: if signedIn() && (uid == request.auth.uid || isStaff());
+      // Committee admins see donors through listDonors and getDonor, which write the audit log.
+      allow read: if signedIn() && uid == request.auth.uid;
       allow create: if signedIn() && uid == request.auth.uid && validDonor(request.resource.data) && request.resource.data.createdAt == request.time;
       allow update: if signedIn() && uid == request.auth.uid && validDonor(request.resource.data)
         && request.resource.data.createdAt == resource.data.createdAt;
