@@ -311,6 +311,10 @@ const en = {
   "dn.opening": "Opening…",
   "dn.opened": "Opened.",
   "dn.noAnswer": "The guide could not answer just now.",
+  "dn.statement": "Share statement (PDF)",
+  "dn.receiptPdf": "Share receipt (PDF)",
+  "dn.pdfFail": "We could not make the PDF on this phone. Sharing the receipt as text instead.",
+  "dn.noPdfShare": "Sharing is not available on this phone.",
 
   // give
   "give.eyebrow": "Give",
@@ -694,6 +698,10 @@ const gu: Dict = {
   "dn.opening": "ખોલી રહ્યા છીએ…",
   "dn.opened": "ખોલ્યું.",
   "dn.noAnswer": "માર્ગદર્શક હમણાં જવાબ આપી શક્યો નહીં.",
+  "dn.statement": "સ્ટેટમેન્ટ શેર કરો (PDF)",
+  "dn.receiptPdf": "રસીદ શેર કરો (PDF)",
+  "dn.pdfFail": "આ ફોન પર PDF બનાવી શક્યા નથી. તેના બદલે રસીદ ટેક્સ્ટ તરીકે શેર કરીએ છીએ.",
+  "dn.noPdfShare": "આ ફોન પર શેરિંગ ઉપલબ્ધ નથી.",
 
   "give.eyebrow": "દાન",
   "give.title": "દાન",
@@ -1069,6 +1077,10 @@ const hi: Dict = {
   "dn.opening": "खोला जा रहा है…",
   "dn.opened": "खोल दिया।",
   "dn.noAnswer": "गाइड अभी जवाब नहीं दे सका।",
+  "dn.statement": "स्टेटमेंट साझा करें (PDF)",
+  "dn.receiptPdf": "रसीद साझा करें (PDF)",
+  "dn.pdfFail": "इस फ़ोन पर PDF नहीं बन सका। इसके बजाय रसीद टेक्स्ट के रूप में साझा कर रहे हैं।",
+  "dn.noPdfShare": "इस फ़ोन पर साझा करना उपलब्ध नहीं है।",
 
   "give.eyebrow": "दान",
   "give.title": "दान",
@@ -1444,6 +1456,10 @@ const ur: Dict = {
   "dn.opening": "کھولا جا رہا ہے…",
   "dn.opened": "کھول دیا۔",
   "dn.noAnswer": "گائیڈ ابھی جواب نہیں دے سکا۔",
+  "dn.statement": "اسٹیٹمنٹ شیئر کریں (PDF)",
+  "dn.receiptPdf": "رسید شیئر کریں (PDF)",
+  "dn.pdfFail": "اس فون پر PDF نہیں بن سکا۔ اس کے بجائے رسید ٹیکسٹ کی صورت میں شیئر کر رہے ہیں۔",
+  "dn.noPdfShare": "اس فون پر شیئرنگ دستیاب نہیں ہے۔",
 
   "give.eyebrow": "عطیہ",
   "give.title": "عطیہ",

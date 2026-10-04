@@ -2,11 +2,12 @@ import { Link, router } from "expo-router";
 import { where } from "firebase/firestore";
 import { useLang } from "@/lib/i18n";
 import { Pressable } from "react-native";
-import { PURPOSE_LABELS, donationStage, formatDate, formatRupees } from "@ks1j/shared";
+import { PURPOSE_LABELS, donationStage, formatDate, formatRupees, statementHtml } from "@ks1j/shared";
 import { RequireAuth } from "@/components/RequireAuth";
 import { Banner, Body, Btn, Card, Heading, Screen } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { useCollection } from "@/lib/firestore";
+import { sharePdf } from "@/lib/pdf";
 
 export default function MyDonations() {
   const { t } = useLang();
@@ -52,6 +53,30 @@ export default function MyDonations() {
           </>
         )}
         <Btn label={t("donations.4")} onPress={() => router.push("/give/donate")} />
+        {mine.length > 0 && (
+          <Btn
+            quiet
+            label={t("dn.statement")}
+            onPress={() =>
+              void sharePdf(
+                statementHtml(
+                  mine.map((d) => ({
+                    reference: d.publicReference ?? d.id,
+                    createdAt: d.createdAt?.toDate?.() ?? null,
+                    amount: d.amount,
+                    displayCurrency: d.displayCurrency,
+                    displayAmount: d.displayAmount ?? null,
+                    purpose: PURPOSE_LABELS[d.purpose] ?? "Donation",
+                    status: d.status,
+                    allocatedAmount: d.allocatedAmount ?? 0,
+                    disbursedAmount: d.disbursedAmount ?? 0,
+                  })),
+                ),
+                t("dn.statement"),
+              ).catch(() => {})
+            }
+          />
+        )}
         <Btn quiet label={t("donations.5")} onPress={() => router.push("/give/donor-profile")} />
       </Screen>
     </RequireAuth>

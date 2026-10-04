@@ -12,3 +12,4 @@ export * from "./i18n";
 export * from "./askGuide";
 export * from "./mosqueData";
 export * from "./mosqueSearch";
+export * from "./pdfHtml";

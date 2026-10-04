@@ -3,11 +3,12 @@ import { where } from "firebase/firestore";
 import { useLang } from "@/lib/i18n";
 import { useState } from "react";
 import { Share, View } from "react-native";
-import { PURPOSE_LABELS, donationStage, formatDate, formatRupees } from "@ks1j/shared";
+import { PURPOSE_LABELS, donationStage, formatDate, formatRupees, receiptHtml } from "@ks1j/shared";
 import { RequireAuth } from "@/components/RequireAuth";
 import { Banner, Body, Btn, Card, Heading, Screen } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { useCollection, useDocument } from "@/lib/firestore";
+import { sharePdf } from "@/lib/pdf";
 
 const METHOD: Record<string, string> = { bank_transfer: "Bank transfer", upi: "UPI", cash: "Cash", direct_to_provider: "Paid directly to the provider", other: "Other" };
 
@@ -55,11 +56,49 @@ export default function DonationDetail() {
     (d.allocatedAmount ?? 0) > 0 ? t("dn.allocated", { amt: formatRupees(d.allocatedAmount) }) : t("donation.5"),
   ].filter(Boolean).join("\n");
 
+  const VISIBILITY: Record<string, string> = { private: "Private", public: "Shown", anonymous: "Anonymous" };
+  async function shareReceipt() {
+    const x = d;
+    if (!x) return;
+    if (!paid) return void Share.share({ message: receipt });
+    try {
+      await sharePdf(
+        receiptHtml({
+          reference: x.publicReference ?? id,
+          createdAt: x.createdAt?.toDate?.() ?? null,
+          paidAt: x.paidAt?.toDate?.() ?? null,
+          amount: x.amount,
+          purpose: PURPOSE_LABELS[x.purpose] ?? "Donation",
+          status: x.status,
+          visibility: VISIBILITY[x.visibility] ?? "Private",
+          displayCurrency: x.displayCurrency,
+          displayAmount: x.displayAmount ?? null,
+          exchangeRate: x.exchangeRate ?? null,
+          paymentMethod: x.paymentMethod ?? null,
+          paymentId: x.paymentId ?? null,
+          allocatedAmount: x.allocatedAmount ?? 0,
+          disbursedAmount: x.disbursedAmount ?? 0,
+          allocations: live.map((a) => ({
+            ref: a.caseRef ?? (a.caseNumber ? `Case #${a.caseNumber}` : "Committee fund"),
+            category: PURPOSE_LABELS[a.category] ?? "",
+            amount: a.amount,
+            disbursed: disbs.rows.filter((x) => x.status === "completed" && x.allocationId === a.id).reduce((s, x) => s + x.amount, 0),
+          })),
+        }),
+        t("dn.receiptPdf"),
+      );
+    } catch {
+      Share.share({ message: `${t("dn.pdfFail")}
+
+${receipt}` });
+    }
+  }
+
   return (
     <RequireAuth eyebrow={t("donation.1")} title={t("donation.2")}>
       <Screen eyebrow={d.publicReference ?? "Donation"} title={formatRupees(d.amount)} intro={`${PURPOSE_LABELS[d.purpose] ?? "Donation"} · ${donationStage(d as unknown as Parameters<typeof donationStage>[0])}`}>
         <Btn label={t("donation.3")} onPress={() => setShown(!shown)} />
-        <Btn quiet label={t("donation.4")} onPress={() => Share.share({ message: receipt })} />
+        <Btn quiet label={paid ? t("dn.receiptPdf") : t("donation.4")} onPress={shareReceipt} />
 
         <Card>
           <Heading>{t("donation.7")}</Heading>

@@ -86,7 +86,9 @@ Both need `gcloud auth application-default login` once. The ledger is append-onl
 
 ## Mobile
 
-`apps/mobile` is Expo (Android first). Run it with `cd apps/mobile && npx expo start`. The GitHub workflow `android-apk.yml` builds an APK on pushes to `master` that touch `apps/mobile` or `packages/shared`.
+`apps/mobile` is Expo (Android first). Run it with `cd apps/mobile && npx expo start`. `expo-location` (mosque finder), `expo-print` and `expo-sharing` (PDF receipts and statements) are native modules, so an installed app needs a **new Android build** (`android-apk.yml` or a local build) before those features work; a JavaScript-only update is not enough.
+
+The GitHub workflow `android-apk.yml` builds an APK on pushes to `master` that touch `apps/mobile` or `packages/shared`.
 
 ## Conventions
 
