@@ -215,6 +215,39 @@ exports.verifyDisbursementProof = onCall(REGION, async (req) => {
   return { ok: true };
 });
 
+/**
+ * The committee marks a paid-out case completed. It is a function, not a client write, so the donors who gave to it
+ * are always told, and so the step is audited.
+ */
+exports.closeCase = onCall(REGION, async (req) => {
+  const uid = await requireAdmin(req);
+  const { caseId } = req.data ?? {};
+  if (typeof caseId !== "string") throw new HttpsError("invalid-argument", "A case is required.");
+  const allocs = await db.collection("allocations").where("caseId", "==", caseId).where("status", "==", "allocated").get();
+  const notes = [];
+  await db.runTransaction(async (tx) => {
+    notes.length = 0;
+    const ref = db.doc(`cases/${caseId}`);
+    const s = await tx.get(ref);
+    if (!s.exists || s.get("status") !== "disbursed") throw fail("Only a paid-out case can be marked completed.");
+    const c = s.data();
+    tx.update(ref, { status: "closed", closedBy: uid, closedAt: FieldValue.serverTimestamp() });
+    caseEvent(db, tx, c, caseId, "closed", uid);
+    // One notice per donor, linking to the first donation of theirs that went to this case.
+    const told = new Set();
+    for (const a of allocs.docs) {
+      const donor = a.get("donorId");
+      if (!donor || told.has(donor)) continue;
+      told.add(donor);
+      queue(notes, donor, "completed", `Case ${caseRefOf(c) ?? caseId} has been marked completed.`, `/donations/detail?id=${a.get("donationId")}`);
+    }
+    audit(db, tx, { action: "CASE_COMPLETED", actor: uid, entityType: "case", entityId: caseId, oldValue: { status: "disbursed" }, newValue: { status: "closed" } });
+  });
+  await flush(db, notes);
+  await refreshTransparency(db);
+  return { ok: true };
+});
+
 /** Run the books. Returns every place the numbers do not agree. An empty list means everything reconciles. */
 exports.reconcileFunds = onCall(REGION, async (req) => {
   await requireAdmin(req);

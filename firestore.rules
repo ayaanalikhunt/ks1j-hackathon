@@ -15,7 +15,7 @@ service cloud.firestore {
         && d.get('phone', '') is string && d.get('phone', '').size() <= 25
         && d.get('country', '') is string && d.get('country', '').size() <= 60
         && d.get('preferredCurrency', 'INR') in ['INR', 'USD', 'EUR', 'GBP', 'AED', 'SAR', 'CAD', 'AUD', 'SGD', 'QAR', 'KWD']
-        && d.get('notifications', {}).keys().hasOnly(['received', 'allocated', 'disbursed', 'refunded'])
+        && d.get('notifications', {}).keys().hasOnly(['received', 'allocated', 'disbursed', 'refunded', 'completed'])
         && d.get('notifications', {}).values().hasOnly([true, false]);
     }
     function signedIn() { return request.auth != null; }
@@ -103,12 +103,8 @@ service cloud.firestore {
         && request.resource.data.declineReason in ['insufficient_information', 'missing_sources', 'insufficient_proof', 'other']
         && request.resource.data.declineNote is string && request.resource.data.declineNote.size() >= 5
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'declinedBy', 'declinedAt', 'declineReason', 'declineNote']);
-      // Funded and paid-out are written only by the Cloud Functions (they also write the ledger).
-      // Closing a paid-out case is admin level.
-      allow update: if isAdmin() && resource.data.status == 'disbursed'
-        && request.resource.data.status == 'closed'
-        && request.resource.data.closedBy == request.auth.uid
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'closedBy', 'closedAt']);
+      // Funded, paid-out and closed are written only by the Cloud Functions (payOutCase, closeCase): paying out writes
+      // the ledger, and closing tells the donors the case is complete.
       // Alternative verification for someone with no ID proof.
       allow update: if isStaff() && resource.data.status in ['submitted', 'verified', 'approved']
         && resource.data.get('idProofType', 'aadhaar') == 'none'

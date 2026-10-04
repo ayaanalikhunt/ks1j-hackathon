@@ -68,6 +68,7 @@ export const DONOR_NOTIFICATION_LABELS = {
   allocated: "My donation is allocated to a case",
   disbursed: "My allocated funds are paid out",
   refunded: "A refund is issued",
+  completed: "A case I gave to is marked completed",
 } as const;
 export type DonorNotificationKey = keyof typeof DONOR_NOTIFICATION_LABELS;
 export const DONOR_NOTIFICATION_KEYS = Object.keys(DONOR_NOTIFICATION_LABELS) as DonorNotificationKey[];

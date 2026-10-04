@@ -80,6 +80,21 @@ describe("notifications honour the donor's choices", () => {
     await call("createDisbursement", { allocationId: alloc.id, amount: 1000, method: "upi" });
     expect((await texts("dp-quiet")).join(" ")).toMatch(/disbursed/);
   });
+  it("donors are told a case is completed, once each, unless they switched that off", async () => {
+    await adminDb().doc("cases/dp-done").set({ status: "disbursed", amountRequested: 1000, raised: 1000, number: 778, applicantId: "x", title: "T" });
+    await adminDb().doc("donors/dp-nodone").set({ notifications: { completed: false } });
+    const al = (donorId: string, donationId: string) => adminDb().collection("allocations").add({ donorId, donationId, caseId: "dp-done", amount: 500, status: "allocated", disbursedAmount: 0, reservedAmount: 0 });
+    await al("dp-done1", "d1");
+    await al("dp-done1", "d2"); // same donor, two gifts: one notice
+    await al("dp-nodone", "d3");
+    await call("closeCase", { caseId: "dp-done" });
+    expect((await texts("dp-done1")).filter((t) => /completed/.test(t)).length).toBe(1);
+    expect(await texts("dp-nodone")).toEqual([]);
+    expect((await adminDb().doc("cases/dp-done").get()).get("status")).toBe("closed");
+    const kinds = (await adminDb().collection("caseEvents").where("caseId", "==", "dp-done").get()).docs.map((d) => d.get("kind"));
+    expect(kinds).toContain("closed");
+    await expect(call("closeCase", { caseId: "dp-case" })).rejects.toThrow(/paid-out/); // a published case cannot be closed
+  });
   it("a donor with no saved choices gets everything", async () => {
     const don = await adminDb().collection("donations").add({ payerId: "dp-default", status: "paid", amount: 2000, fund: "general", purpose: "ration", allocatedAmount: 0, disbursedAmount: 0 });
     await call("allocateDonation", { donationId: don.id, allocations: [{ caseId: "dp-case", amount: 2000 }] });

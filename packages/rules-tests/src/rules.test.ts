@@ -148,11 +148,11 @@ describe("case workflow", () => {
     await assertFails(updateDoc(doc(asUser("tru1"), "cases", "cVer"), { status: "published", publishedBy: "tru1" }));
     await assertFails(updateDoc(doc(asUser("tru1"), "cases", "cSyed"), { status: "published", publishedBy: "tru2" }));
   });
-  it("closing is admin level and only after payout", async () => {
+  it("closing a case is the closeCase function's job: no client, not even an admin, can write it directly", async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), "cases", "cPaid"), { applicantId: "alice", status: "disbursed" });
     });
-    await assertSucceeds(updateDoc(doc(asUser("adm"), "cases", "cPaid"), { status: "closed", closedBy: "adm" }));
+    await assertFails(updateDoc(doc(asUser("adm"), "cases", "cPaid"), { status: "closed", closedBy: "adm" }));
     await assertFails(updateDoc(doc(asUser("tru1"), "cases", "cPaid"), { status: "closed", closedBy: "tru1" }));
     await assertFails(updateDoc(doc(asUser("adm"), "cases", "cSyed"), { status: "closed", closedBy: "adm" }));
   });

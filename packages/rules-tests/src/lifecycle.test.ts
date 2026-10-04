@@ -167,8 +167,10 @@ describe("case lifecycle, end to end", () => {
   });
 
   it("an admin closes it, and the applicant sees every step in their updates", async () => {
-    await updateDoc(doc(finance.db, "cases", caseId), { status: "closed", closedBy: "e2e-finance" });
-    await addDoc(collection(finance.db, "caseEvents"), { caseId, applicantId: "e2e-member", caseNumber: number, caseTitle: "Class 10 fees", kind: "closed", actorId: "e2e-finance" });
+    await expect(updateDoc(doc(finance.db, "cases", caseId), { status: "closed", closedBy: "e2e-finance" })).rejects.toThrow(); // only the function can
+    await expect(callable(trustee, "closeCase")({ caseId })).rejects.toThrow(/Admins only/);
+    await callable(finance, "closeCase")({ caseId });
+    await expect(callable(finance, "closeCase")({ caseId })).rejects.toThrow(/paid-out/); // already closed
     const mine = await getDocs(query(collection(member.db, "caseEvents"), where("applicantId", "==", "e2e-member")));
     const kinds = mine.docs.map((d) => d.data().kind);
     expect(kinds).toEqual(expect.arrayContaining(["submitted", "gift_received", "funded", "paid_out", "closed"]));

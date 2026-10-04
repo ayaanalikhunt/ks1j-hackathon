@@ -3,7 +3,7 @@
 const { FieldValue } = require("firebase-admin/firestore");
 
 /** What a donor can switch on or off. In-app only: there is no email or SMS channel. */
-const NOTIFICATION_TYPES = ["received", "allocated", "disbursed", "refunded"];
+const NOTIFICATION_TYPES = ["received", "allocated", "disbursed", "refunded", "completed"];
 
 /** Collect a notification during a transaction (the transaction may retry, so callers clear the list at the start). */
 function queue(list, userId, type, text, link) {

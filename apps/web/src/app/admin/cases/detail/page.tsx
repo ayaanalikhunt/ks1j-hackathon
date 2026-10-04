@@ -120,6 +120,7 @@ interface CaseEventRow {
 
 const GHOST = "!bg-card !text-fg border border-line";
 const payOutCase = httpsCallable(getFunctions(auth.app, "asia-south1"), "payOutCase");
+const closeCase = httpsCallable(getFunctions(auth.app, "asia-south1"), "closeCase");
 
 function Row({ k, v }: { k: string; v: React.ReactNode }) {
   return (
@@ -276,11 +277,7 @@ function Review() {
   const setTriage = (patch: { priority?: Priority; needCategory?: string }) => act(() => updateDoc(ref, patch), "Saved.");
   const setEligible = (field: "zakatEligible" | "khumsEligible", v: boolean) => act(() => updateDoc(ref, { [field]: v }), "Saved.");
   const payout = () => act(() => payOutCase({ caseId: id }), "Money handed over. The ledger entry is recorded.");
-  const close = () =>
-    act(async () => {
-      await updateDoc(ref, { status: "closed", closedBy: uid, closedAt: serverTimestamp() });
-      await log("closed");
-    }, "Case closed.");
+  const close = () => act(() => closeCase({ caseId: id }), "Case marked completed. The donors who gave to it have been told.");
   const deny = () =>
     act(async () => {
       await updateDoc(ref, { status: "declined", declinedBy: uid, declinedAt: serverTimestamp(), declineReason: reason, declineNote: note.trim() });
