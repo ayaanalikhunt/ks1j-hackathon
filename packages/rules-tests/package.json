@@ -1,0 +1,14 @@
+{
+  "name": "@ks1j/rules-tests",
+  "private": true,
+  "scripts": {
+    "test": "firebase emulators:exec --only firestore --project ks1j-8a2e3 \"vitest run\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5",
+    "firebase": "^12",
+    "typescript": "^5",
+    "vitest": "^3"
+  }
+}
