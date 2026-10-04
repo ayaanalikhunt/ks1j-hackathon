@@ -32,6 +32,7 @@
     "plugins": [
       "expo-router",
       "expo-font",
+      ["expo-location", { "locationWhenInUsePermission": "KS1J uses your location once, to show the nearest masjid. It is not saved." }],
       [
         "expo-splash-screen",
         {

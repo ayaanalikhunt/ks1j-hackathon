@@ -10,6 +10,7 @@ export default function Services() {
       <FeatureCard icon="coin" title={t("svc.loanApply.t")} desc={t("svc.loanApply.d")} href="/services/loan-apply" />
       <FeatureCard icon="shield" title={t("svc.loans.t")} desc={t("svc.loans.d")} href="/services/loans" />
       <FeatureCard icon="user" title={t("svc.profile.t")} desc={t("svc.profile.d")} href="/services/profile" />
+      <FeatureCard icon="pin" title={t("svc.mosques.t")} desc={t("svc.mosques.d")} href="/services/mosques" />
       <FeatureCard icon="receipt" title={t("svc.receipts.t")} desc={t("svc.receipts.d")} href="/services/receipts" />
     </Screen>
   );
