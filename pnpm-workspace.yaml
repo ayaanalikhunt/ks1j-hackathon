@@ -2,6 +2,7 @@ packages:
   - apps/*
   - packages/*
   - tools/*
+  - functions
 allowBuilds:
   "@firebase/util": true
   esbuild: true
