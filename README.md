@@ -1,11 +1,12 @@
-# KS1J Hackathon
+# KS1J
 
-Next.js (App Router, TS, Tailwind) + Supabase, deployed on Vercel.
+pnpm + turbo monorepo. Spec: `C:\Projects\ks1j artifacts\MASTER_REBUILD_PROMPT_1.md`.
+Backend is Firebase (project `ks1j-8a2e3`: Auth, Firestore, Hosting), not Supabase.
 
 ```
-cp .env.local.example .env.local   # fill in Supabase URL + anon key
-npm run dev                        # http://localhost:3000
-npm run build && npm run lint
+apps/web         Next.js public site + /admin
+apps/mobile      Expo Router member app (not yet created)
+packages/shared  domain rules, money maths, community helpers
 ```
 
-Supabase clients: `src/lib/supabase/client.ts` (browser), `server.ts` (server components / actions).
+`pnpm install` · `pnpm dev` · `pnpm lint` · `pnpm typecheck` · `pnpm test` · `pnpm build`
