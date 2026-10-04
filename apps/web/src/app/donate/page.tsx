@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { doc, onSnapshot } from "firebase/firestore";
 import { Suspense, useEffect, useState } from "react";
-import { PURPOSE_LABELS, RESTRICTED_PURPOSES, VISIBILITY_LABELS, formatRupees } from "@ks1j/shared";
+import { PURPOSE_LABELS, RESTRICTED_PURPOSES, VISIBILITY_LABELS, formatDateTime, formatRupees } from "@ks1j/shared";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Banner, Button, Card, Field, PageHeader } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
@@ -177,7 +177,7 @@ function Form() {
           {quote.displayCurrency !== "INR" && (
             <>
               <p>Donation: {quote.displayAmount} {quote.displayCurrency}</p>
-              <p>Exchange rate: 1 {quote.displayCurrency} = ₹{quote.exchangeRate.toFixed(2)} (as of {new Date(quote.rateAsOf).toLocaleString("en-GB")}){quote.rateStale ? ", the latest we could fetch" : ""}</p>
+              <p>Exchange rate: 1 {quote.displayCurrency} = ₹{quote.exchangeRate.toFixed(2)} (as of {formatDateTime(new Date(quote.rateAsOf))}){quote.rateStale ? ", the latest we could fetch" : ""}</p>
               <p>Currency conversion margin: {quote.fxMarkupPercent}% (₹{quote.fxMarkupAmount.toLocaleString("en-IN")})</p>
               <p>Rate you pay: ₹{quote.effectiveRate.toFixed(2)}</p>
             </>
