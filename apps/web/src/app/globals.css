@@ -86,3 +86,39 @@ html.js-reveal .reveal.is-in {
   opacity: 1;
   transform: none;
 }
+
+/* Home page motion. Everything here is off for people who prefer reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes rise { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+  @keyframes draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+  @keyframes fade-in { from { opacity: 0; } to { opacity: var(--to, 1); } }
+  @keyframes float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -10px; } }
+  @keyframes drift { from { background-position: 0 0; } to { background-position: 96px 96px; } }
+  @keyframes glow { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+  @keyframes sheen { from { transform: translateX(-120%) skewX(-20deg); } to { transform: translateX(260%) skewX(-20deg); } }
+  @keyframes grow-x { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  @keyframes nudge { 0%, 100% { translate: 0 0; } 50% { translate: 0 -3px; } }
+
+  /* Hero: lines rise in one after another; lattice drifts; mihrab arch draws itself, then floats gently. */
+  .hero { animation: drift 40s linear infinite; }
+  .hero-in { opacity: 0; animation: rise 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards; animation-delay: var(--d, 0ms); }
+  .arch-wrap { --to: 0.8; opacity: 0; animation: fade-in 1.2s ease 0.3s forwards, float 7s ease-in-out 1.5s infinite; }
+  .arch path { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 2.2s ease forwards; animation-delay: var(--d, 0.4s); }
+  .arch circle { animation: glow 3.2s ease-in-out infinite; }
+  .gold-btn { position: relative; overflow: hidden; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+  .gold-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(201, 162, 74, 0.45); }
+  .gold-btn::after { content: ""; position: absolute; inset: 0 auto 0 0; width: 40%; background: rgba(255, 255, 255, 0.45); transform: translateX(-120%) skewX(-20deg); animation: sheen 3.6s ease-in-out 1.8s infinite; }
+  .ghost-btn { transition: background-color 0.2s ease, transform 0.2s ease; }
+  .ghost-btn:hover { background-color: rgba(255, 255, 255, 0.12); transform: translateY(-2px); }
+  .eyebrow-dot::before { content: ""; display: inline-block; width: 0.5rem; height: 0.5rem; margin-right: 0.6rem; border-radius: 9999px; background: #c9a24a; animation: glow 2s ease-in-out infinite; }
+
+  /* Section headings: the gold rule grows when the heading arrives. */
+  .rule { transform-origin: left; transform: scaleX(0); }
+  .is-in .rule, html:not(.js-reveal) .rule { animation: grow-x 0.8s ease 0.25s forwards; }
+
+  /* Cards lift on hover without fighting the scroll-reveal transform. */
+  .lift { transition: translate 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease; }
+  html.js-reveal .reveal.lift { transition: opacity 0.8s ease, transform 1s cubic-bezier(0.34, 1.45, 0.64, 1), translate 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease; }
+  .lift:hover { translate: 0 -5px; box-shadow: 0 14px 30px rgba(11, 77, 58, 0.18); border-color: var(--green); }
+  .lift:hover .step-badge { animation: nudge 0.9s ease-in-out infinite; }
+}
