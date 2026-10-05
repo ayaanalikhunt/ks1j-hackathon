@@ -1,5 +1,5 @@
 import * as Location from "expo-location";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Image, Linking } from "react-native";
 import {
   MOSQUES,
@@ -22,12 +22,13 @@ type Row = { id: string } & Partial<MosqueVenue>;
 
 const LOCATION_TIMEOUT_MS = 15000;
 
-function Venue({ m, km }: { m: MosqueVenue; km?: number | null }) {
+function Venue({ m, km, nearest }: { m: MosqueVenue; km?: number | null; nearest?: boolean }) {
   const { t } = useLang();
   const pin = hasVerifiedPin(m);
   const verified = m.verificationStatus === "VOLUNTEER_VERIFIED" || m.verificationStatus === "OFFICIALLY_VERIFIED";
   return (
     <Card>
+      {nearest ? <Body bold>{t("mq.nearest")}</Body> : null}
       <Heading>{m.name}</Heading>
       {m.photoUrl ? (
         <Image source={{ uri: m.photoUrl }} accessibilityLabel={t("mq.photoOf", { name: m.name })} style={{ width: "100%", aspectRatio: 16 / 9, borderRadius: 12 }} resizeMode="cover" />
@@ -57,18 +58,22 @@ export default function Mosques() {
   const [submitted, setSubmitted] = useState("");
   const [loc, setLoc] = useState<UserLocation | null>(null);
   const [locMsg, setLocMsg] = useState<string | null>(null);
+  const [locating, setLocating] = useState(false);
   const [friday, setFriday] = useState(() => isFriday());
   const [more, setMore] = useState(false);
 
   const parsed = useMemo(() => extractMosqueQuery(submitted), [submitted]);
   const wantsFriday = friday || parsed.intent === "FIND_NEAREST_FRIDAY_MASJID";
   const matches = useMemo(() => searchMosques(parsed, mosques), [parsed, mosques]);
-  // once a location is known, nearest first, whether or not the search said "near"
-  const ranked = useMemo(() => nearestFirst(loc, matches), [loc, matches]);
-  const fri = useMemo(() => searchFriday(loc, matches), [loc, matches]);
+  // Nearest to where you are, unless the search names another area or city: then that place's masajid, without distances from here.
+  const place = parsed.area ?? parsed.city;
+  const here = place ? null : loc;
+  const ranked = useMemo(() => nearestFirst(here, matches), [here, matches]);
+  const fri = useMemo(() => searchFriday(here, matches), [here, matches]);
 
   async function locate() {
     setLocMsg(null);
+    setLocating(true);
     try {
       const perm = await Location.requestForegroundPermissionsAsync();
       if (perm.status !== "granted") return setLocMsg(t("mq.locDenied"));
@@ -81,8 +86,16 @@ export default function Mosques() {
       setLoc({ latitude: p.coords.latitude, longitude: p.coords.longitude, accuracyMeters: p.coords.accuracy ?? undefined });
     } catch {
       setLocMsg(t("mq.locFailed"));
+    } finally {
+      setLocating(false);
     }
   }
+
+  // Opening the finder shows the closest masajid straight away.
+  useEffect(() => {
+    void locate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // "nearest masjid", "jummah near me": ask for the location the search needs
   function submit() {
@@ -102,7 +115,8 @@ export default function Mosques() {
       <Btn quiet label={t("mq.useLoc")} onPress={locate} />
       <Chip label={t("mq.friday")} on={friday} onPress={() => setFriday(!friday)} />
       {locMsg ? <Banner error>{locMsg}</Banner> : null}
-      {loc ? <Banner>{t("mq.straight")}</Banner> : null}
+      {locating && !loc ? <Banner>{t("mq.locating")}</Banner> : null}
+      {place ? <Banner>{t("mq.elsewhere", { place })}</Banner> : here ? <Banner>{t("mq.straight")}</Banner> : null}
       {wantsFriday ? <Banner>{t("mq.fridayNote")}</Banner> : null}
       {wantsFriday && !fri.confirmed.length ? (
         <Card>
@@ -110,7 +124,7 @@ export default function Mosques() {
           <Btn quiet label={t("mq.showMore")} onPress={() => setMore(true)} />
         </Card>
       ) : null}
-      {[...list, ...fallback].map(({ m, km }) => <Venue key={m.id} m={m} km={km} />)}
+      {[...list, ...fallback].map(({ m, km }, i) => <Venue key={m.id} m={m} km={km} nearest={i === 0 && typeof km === "number"} />)}
       {!list.length && !fallback.length && !wantsFriday ? <Banner>{t("mq.nothing")}</Banner> : null}
     </Screen>
   );

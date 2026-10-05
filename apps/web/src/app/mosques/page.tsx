@@ -36,11 +36,12 @@ const LOCATION_MESSAGE: Record<LocationError, string> = {
   LOCATION_UNKNOWN_ERROR: "Something went wrong finding your location. You can still search by name or area.",
 };
 
-function VenueCard({ m, distanceKm }: { m: MosqueVenue; distanceKm?: number | null }) {
+function VenueCard({ m, distanceKm, nearest }: { m: MosqueVenue; distanceKm?: number | null; nearest?: boolean }) {
   const pin = hasVerifiedPin(m);
   const verified = m.verificationStatus === "VOLUNTEER_VERIFIED" || m.verificationStatus === "OFFICIALLY_VERIFIED";
   return (
     <Card>
+      {nearest && <p className="mb-1 text-sm font-semibold text-brand">Nearest to you</p>}
       <div className="flex flex-wrap items-start justify-between gap-2">
         <h3 className="font-display text-xl">{m.name}</h3>
         <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${verified ? "border-brand text-brand" : "border-line text-muted"}`}>
@@ -97,34 +98,38 @@ function Finder() {
   const [submitted, setSubmitted] = useState(initial);
   const [loc, setLoc] = useState<UserLocation | null>(null);
   const [locError, setLocError] = useState<LocationError | null>(null);
-  const [asked, setAsked] = useState(false);
+  const [locating, setLocating] = useState(false);
   const [friday, setFriday] = useState(() => isFriday());
   const [showUnconfirmed, setShowUnconfirmed] = useState(false);
 
-  // arriving from the first-visit prompt ("Allow location"): ask once, straight away
-  const locate = params.get("locate") === "1";
+  // Opening the finder shows the closest masajid straight away.
   useEffect(() => {
-    if (locate) void locateMe();
-  }, [locate]);
+    void locateMe();
+  }, []);
 
   const parsed = useMemo(() => extractMosqueQuery(submitted), [submitted]);
   const wantsFriday = friday || parsed.intent === "FIND_NEAREST_FRIDAY_MASJID";
   const needLocation = parsed.requiresLocation && !loc;
 
   async function locateMe() {
-    setAsked(true);
+    setLocating(true);
     setLocError(null);
     try {
       setLoc(await getCurrentUserLocation());
     } catch (e) {
       setLocError((e instanceof Error ? e.message : "LOCATION_UNKNOWN_ERROR") as LocationError);
+    } finally {
+      setLocating(false);
     }
   }
 
   const matches = useMemo(() => searchMosques(parsed, mosques), [parsed, mosques]);
   // once a location is known, nearest first, whether or not the search said "near"
-  const ranked = useMemo(() => nearestFirst(loc, matches), [loc, matches]);
-  const fri = useMemo(() => searchFriday(loc, matches), [loc, matches]);
+  // Nearest to where you are, unless the search names another area or city: then that place's masajid, without distances from here.
+  const place = parsed.area ?? parsed.city;
+  const here = place ? null : loc;
+  const ranked = useMemo(() => nearestFirst(here, matches), [here, matches]);
+  const fri = useMemo(() => searchFriday(here, matches), [here, matches]);
 
   const list: { m: MosqueVenue; d?: number | null }[] = wantsFriday
     ? fri.confirmed.map((r) => ({ m: r.mosque, d: r.distanceKm }))
@@ -135,19 +140,10 @@ function Finder() {
     <>
       <PageHeader eyebrow="Mosque finder" title="Find a Shia masjid" intro="Search by name or area, or use your location. Every listing says clearly whether it has been checked by volunteers." />
 
-      {!asked && !loc && (
-        <Card className="mb-4">
-          <h2 className="font-display text-xl">Find a nearby Shia masjid</h2>
-          <p className="mt-1 text-muted">
-            Allow location so KS1J can show nearby masajid and, on Friday, help you find the nearest confirmed Jummah. Your location is used once for this search and is not saved.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Button onClick={locateMe}>Allow location</Button>
-            <button onClick={() => setAsked(true)} className="min-h-12 rounded-xl border border-line px-5 font-semibold">
-              Not now
-            </button>
-          </div>
-        </Card>
+      {locating && !loc && (
+        <div className="mb-4">
+          <Banner>Finding masajid near you…</Banner>
+        </div>
       )}
 
       <form
@@ -174,12 +170,17 @@ function Finder() {
           <Banner kind="error">{LOCATION_MESSAGE[locError]}</Banner>
         </div>
       )}
-      {needLocation && !locError && (
+      {needLocation && !locError && !locating && (
         <div className="mb-4">
           <Banner>To find the nearest masjid, tap Use my location. Showing every match in the meantime.</Banner>
         </div>
       )}
-      {loc && (
+      {place && (
+        <div className="mb-4">
+          <Banner>Showing masajid in {place}. Clear the search to see the ones nearest to you.</Banner>
+        </div>
+      )}
+      {here && (
         <div className="mb-4">
           <Banner>Distances are straight-line, not driving distance. Only masajid whose map pin has been checked by volunteers can be ranked by distance.</Banner>
         </div>
@@ -206,8 +207,8 @@ function Finder() {
       )}
 
       <div className="space-y-3" aria-live="polite">
-        {[...list, ...fallback.map((c) => ({ m: c.mosque, d: c.distanceKm }))].map(({ m, d }) => (
-          <VenueCard key={m.id} m={m} distanceKm={d} />
+        {[...list, ...fallback.map((c) => ({ m: c.mosque, d: c.distanceKm }))].map(({ m, d }, i) => (
+          <VenueCard key={m.id} m={m} distanceKm={d} nearest={i === 0 && typeof d === "number"} />
         ))}
         {!list.length && !fallback.length && !wantsFriday && <Banner>Nothing matched. Try just the area name, or clear the search to see every listing.</Banner>}
       </div>
