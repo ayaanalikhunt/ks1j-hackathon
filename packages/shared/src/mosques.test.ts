@@ -8,6 +8,7 @@ import {
   findPossibleDuplicates,
   findNearestFridayMosque,
   isFriday,
+  nearestFirst,
   normalizeUnicode,
   searchFriday,
   searchMosques,
@@ -128,6 +129,14 @@ describe("friday", () => {
 describe("nearby and maps", () => {
   it("excludes unverified pins from ranking", () => {
     expect(findNearbyShiaMosques(me, [at("p", { verificationStatus: "PENDING_VERIFICATION" }), base]).map((r) => r.mosque.id)).toEqual(["t"]);
+  });
+  it("nearestFirst ranks verified pins by distance, then keeps every other match without a distance", () => {
+    const far = at("f", { latitude: 19.2, longitude: 72.9 });
+    const pending = at("p", { verificationStatus: "PENDING_VERIFICATION" });
+    const r = nearestFirst(me, [far, pending, base]);
+    expect(r.map((x) => x.mosque.id)).toEqual(["t", "f", "p"]);
+    expect(r[2].distanceKm).toBeNull();
+    expect(nearestFirst(null, [far, base]).map((x) => x.distanceKm)).toEqual([null, null]);
   });
   it("an approximate pin ranks by distance but navigates by name and address", () => {
     const approx = at("a", { pinPrecision: "postcode" });

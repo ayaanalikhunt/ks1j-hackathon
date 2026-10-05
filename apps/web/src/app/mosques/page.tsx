@@ -6,7 +6,7 @@ import {
   buildAppleMapsUrl,
   buildGoogleMapsUrl,
   extractMosqueQuery,
-  findNearbyShiaMosques,
+  nearestFirst,
   hasVerifiedPin,
   isApproximatePin,
   isFriday,
@@ -122,14 +122,13 @@ function Finder() {
   }
 
   const matches = useMemo(() => searchMosques(parsed, mosques), [parsed, mosques]);
-  const nearby = useMemo(() => (loc ? findNearbyShiaMosques(loc, matches) : []), [loc, matches]);
+  // once a location is known, nearest first, whether or not the search said "near"
+  const ranked = useMemo(() => nearestFirst(loc, matches), [loc, matches]);
   const fri = useMemo(() => searchFriday(loc, matches), [loc, matches]);
 
   const list: { m: MosqueVenue; d?: number | null }[] = wantsFriday
     ? fri.confirmed.map((r) => ({ m: r.mosque, d: r.distanceKm }))
-    : loc && parsed.intent === "FIND_NEARBY_SHIA_MASJID" && nearby.length
-      ? nearby.map((r) => ({ m: r.mosque, d: r.distanceKm }))
-      : matches.map((m) => ({ m }));
+    : ranked.map((r) => ({ m: r.mosque, d: r.distanceKm }));
   const fallback: FridayCandidate[] = wantsFriday && !fri.confirmed.length ? [...fri.likely, ...(showUnconfirmed ? fri.unconfirmed : [])] : [];
 
   return (

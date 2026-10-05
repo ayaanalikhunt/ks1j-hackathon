@@ -5,7 +5,7 @@ import {
   MOSQUES,
   buildGoogleMapsUrl,
   extractMosqueQuery,
-  findNearbyShiaMosques,
+  nearestFirst,
   hasVerifiedPin,
   isApproximatePin,
   isFriday,
@@ -19,6 +19,8 @@ import { useCollection } from "@/lib/firestore";
 import { useLang } from "@/lib/i18n";
 
 type Row = { id: string } & Partial<MosqueVenue>;
+
+const LOCATION_TIMEOUT_MS = 15000;
 
 function Venue({ m, km }: { m: MosqueVenue; km?: number | null }) {
   const { t } = useLang();
@@ -61,33 +63,43 @@ export default function Mosques() {
   const parsed = useMemo(() => extractMosqueQuery(submitted), [submitted]);
   const wantsFriday = friday || parsed.intent === "FIND_NEAREST_FRIDAY_MASJID";
   const matches = useMemo(() => searchMosques(parsed, mosques), [parsed, mosques]);
-  const nearby = useMemo(() => (loc ? findNearbyShiaMosques(loc, matches) : []), [loc, matches]);
+  // once a location is known, nearest first, whether or not the search said "near"
+  const ranked = useMemo(() => nearestFirst(loc, matches), [loc, matches]);
   const fri = useMemo(() => searchFriday(loc, matches), [loc, matches]);
 
-  async function useLocation() {
+  async function locate() {
     setLocMsg(null);
     try {
       const perm = await Location.requestForegroundPermissionsAsync();
       if (perm.status !== "granted") return setLocMsg(t("mq.locDenied"));
-      const p = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      if (!(await Location.hasServicesEnabledAsync())) return setLocMsg(t("mq.locFailed"));
+      // a fresh fix can hang indoors or with location just switched on; fall back to the last known one
+      const fresh = Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }).catch(() => null);
+      const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), LOCATION_TIMEOUT_MS));
+      const p = (await Promise.race([fresh, timeout])) ?? (await Location.getLastKnownPositionAsync());
+      if (!p) return setLocMsg(t("mq.locFailed"));
       setLoc({ latitude: p.coords.latitude, longitude: p.coords.longitude, accuracyMeters: p.coords.accuracy ?? undefined });
     } catch {
       setLocMsg(t("mq.locFailed"));
     }
   }
 
+  // "nearest masjid", "jummah near me": ask for the location the search needs
+  function submit() {
+    setSubmitted(text);
+    if (!loc && extractMosqueQuery(text).requiresLocation) void locate();
+  }
+
   const list: { m: MosqueVenue; km?: number | null }[] = wantsFriday
     ? fri.confirmed.map((r) => ({ m: r.mosque, km: r.distanceKm }))
-    : loc && parsed.intent === "FIND_NEARBY_SHIA_MASJID" && nearby.length
-      ? nearby.map((r) => ({ m: r.mosque, km: r.distanceKm }))
-      : matches.map((m) => ({ m }));
+    : ranked.map((r) => ({ m: r.mosque, km: r.distanceKm }));
   const fallback = wantsFriday && !fri.confirmed.length ? [...fri.likely, ...(more ? fri.unconfirmed : [])].map((c) => ({ m: c.mosque, km: c.distanceKm })) : [];
 
   return (
     <Screen eyebrow={t("mq.eyebrow")} title={t("mq.title")} intro={t("mq.intro")}>
-      <Field label={t("mq.search")} value={text} onChangeText={setText} returnKeyType="search" onSubmitEditing={() => setSubmitted(text)} />
-      <Btn label={t("mq.searchBtn")} onPress={() => setSubmitted(text)} />
-      <Btn quiet label={t("mq.useLoc")} onPress={useLocation} />
+      <Field label={t("mq.search")} value={text} onChangeText={setText} returnKeyType="search" onSubmitEditing={submit} />
+      <Btn label={t("mq.searchBtn")} onPress={submit} />
+      <Btn quiet label={t("mq.useLoc")} onPress={locate} />
       <Chip label={t("mq.friday")} on={friday} onPress={() => setFriday(!friday)} />
       {locMsg ? <Banner error>{locMsg}</Banner> : null}
       {loc ? <Banner>{t("mq.straight")}</Banner> : null}

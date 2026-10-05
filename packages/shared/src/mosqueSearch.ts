@@ -251,6 +251,14 @@ export function findNearbyShiaMosques(user: UserLocation, mosques: MosqueVenue[]
   return withDistance(user, mosques.filter((m) => isActive(m) && hasCoords(m) && isVerified(m))).slice(0, limit);
 }
 
+/** Every match, nearest first once a location is known: verified pins by distance, then the rest without a distance. */
+export function nearestFirst(user: UserLocation | null, mosques: MosqueVenue[]): Array<{ mosque: MosqueVenue; distanceKm: number | null }> {
+  if (!user) return mosques.map((mosque) => ({ mosque, distanceKm: null }));
+  const ranked = findNearbyShiaMosques(user, mosques, Infinity);
+  const seen = new Set(ranked.map((r) => r.mosque.id));
+  return [...ranked, ...mosques.filter((m) => !seen.has(m.id)).map((mosque) => ({ mosque, distanceKm: null }))];
+}
+
 export interface FridayCandidate {
   mosque: MosqueVenue;
   /** null when the venue has no verified coordinates, so no distance can honestly be claimed. */
